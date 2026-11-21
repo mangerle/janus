@@ -9,6 +9,9 @@ authors.workspace = true
 
 [dependencies]
 janus-core = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# FS_IMMUTABLE_FL 清除需要 ioctl（libc）
 libc = { workspace = true }
 
 [dev-dependencies]

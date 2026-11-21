@@ -53,11 +53,21 @@ jobs:
       - name: 验证最低支持 Rust 版本
         run: cargo +1.96.0 check --locked --workspace --all-targets
 
+      - name: 安装 MinGW 交叉编译器
+        # 交叉编译 Windows 目标时，aws-lc-sys（reqwest/rustls 的默认加密后端）
+        # 需要目标平台的 C 编译器；本机开发环境同样依赖它
+        run: sudo apt-get install -y gcc-mingw-w64-x86-64
+
       - name: 交叉编译检查 Windows 平台代码
         # 在 Linux 上验证 windows-rs FFI/UAC/托盘等 windows 分支的编译正确性
         run: |
           rustup target add x86_64-pc-windows-gnu
           cargo check --locked --workspace --target x86_64-pc-windows-gnu
+
+      - name: 交叉运行 Windows 平台 Clippy 零警告门禁
+        # Windows 实测作业在远端跑 clippy；这里提前在 Linux 上拦截
+        # 仅 Windows 目标可见的 lint（如不必要的 &mut 传递）
+        run: cargo clippy --locked --workspace --target x86_64-pc-windows-gnu -- -D warnings
 
   # Windows 宿主实测：Windows 条件编译的内核（特权启用、固件变量 API）
   # 必须在真实 Windows 上编译并跑测试，否则平台分支会长期失守。

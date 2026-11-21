@@ -243,7 +243,7 @@ mod windows_impl {
     use tray_icon::menu::MenuEvent;
 
     pub fn run(entries: Vec<BootEntry>, actions: TrayActions) -> Result<()> {
-        let mut tray = build_tray(&entries, &actions)?;
+        let tray = build_tray(&entries, &actions)?;
 
         let event_loop = EventLoopBuilder::<MenuEvent>::with_user_event().build();
 
@@ -263,7 +263,7 @@ mod windows_impl {
             if let Event::UserEvent(menu_event) = event {
                 let id = menu_event.id().0.clone();
                 let quit = handle_menu_event(&id, &entries, &actions);
-                refresh(&mut tray, &entries, &actions);
+                refresh(&tray, &entries, &actions);
                 if quit {
                     *control_flow = ControlFlow::Exit;
                 }

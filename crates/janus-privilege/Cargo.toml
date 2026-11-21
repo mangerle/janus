@@ -9,6 +9,9 @@ authors.workspace = true
 
 [dependencies]
 janus-core = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+# euid 检测需要 geteuid（libc）
 libc = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]

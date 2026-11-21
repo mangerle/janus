@@ -9,7 +9,10 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use janus_core::{BootId, BootManager, JanusError, Result};
+use janus_core::{BootId, BootManager, Result};
+// JanusError 仅 Linux 的 pkexec helper 使用
+#[cfg(target_os = "linux")]
+use janus_core::JanusError;
 
 /// 托盘动作层共享的后端句柄（Arc 动态分发）。
 type SharedManager = Arc<dyn BootManager>;
