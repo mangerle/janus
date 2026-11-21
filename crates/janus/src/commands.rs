@@ -6,8 +6,12 @@
 //! 重执行同一条命令并等待——子进程提权后重新走完整流程，父进程随后退出，
 //! 输出无缝衔接。dry-run 与 `--no-elevate` 分别豁免与禁止该行为。
 
+use std::sync::Arc;
+
 use crate::cli::{Cli, Command};
+use crate::config::Settings;
 use crate::output::{print_entries, progress_printer};
+use crate::settings_ui::run_settings_window;
 use crate::tray_actions::run_tray;
 use anyhow::Context;
 use janus_core::{
@@ -20,17 +24,25 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     match &cli.command {
-        Command::List => {
+        // 无子命令即托盘常驻：IDE 运行、双击可执行文件或快捷方式启动都直接进托盘
+        None | Some(Command::Tray) => {
+            run_tray(cli)?;
+        }
+
+        Some(Command::List) => {
             let mgr = backend(cli)?;
-            let entries = list_entries_maybe_elevate(cli, &args, mgr.as_ref())?;
+            let mut entries = list_entries_maybe_elevate(cli, &args, mgr.as_ref())?;
+            let (settings, _) = Settings::load_from_default_location();
+            settings.apply(&mut entries, cli.all);
             // BootNext 读取失败只影响标记展示，不中断列表输出
             print_entries(&entries, mgr.boot_next().unwrap_or(None), cli.json);
         }
 
-        Command::Next { target } => {
+        Some(Command::Next { target }) => {
             let mgr = backend(cli)?;
             let entries = list_entries_maybe_elevate(cli, &args, mgr.as_ref())?;
-            let entry = resolve_target(&entries, &parse_boot_target(target))?;
+            let (settings, _) = Settings::load_from_default_location();
+            let entry = resolve_with_settings(&entries, &settings, target)?;
             let (id, name) = (entry.id, entry.name.clone());
             // 真实模式下写固件需要 root/管理员；不足时自动提权重执行本命令
             require_elevated(cli, &args)?;
@@ -38,18 +50,19 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
             println!("已设置下次启动：{id}（{name}）。重启后生效。");
         }
 
-        Command::Clear => {
+        Some(Command::Clear) => {
             let mgr = backend(cli)?;
             require_elevated(cli, &args)?;
             mgr.clear_boot_next().context("清除 BootNext 失败")?;
             println!("已清除 BootNext。");
         }
 
-        Command::Reboot { into } => {
+        Some(Command::Reboot { into }) => {
             if let Some(target) = into {
                 let mgr = backend(cli)?;
                 let entries = list_entries_maybe_elevate(cli, &args, mgr.as_ref())?;
-                let entry = resolve_target(&entries, &parse_boot_target(target))?;
+                let (settings, _) = Settings::load_from_default_location();
+                let entry = resolve_with_settings(&entries, &settings, target)?;
                 let (id, name) = (entry.id, entry.name.clone());
                 require_elevated(cli, &args)?;
                 mgr.set_boot_next(id).context("写入 BootNext 失败")?;
@@ -58,23 +71,45 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
             do_reboot()?;
         }
 
-        Command::Tray => {
-            run_tray(cli)?;
+        Some(Command::Settings) => {
+            run_settings(cli)?;
         }
 
-        Command::Update {
+        Some(Command::Update {
             manifest,
             check,
             yes,
-        } => {
+        }) => {
             run_update(manifest.as_deref(), *check, *yes)?;
         }
 
-        Command::Apply { target, reboot } => {
+        Some(Command::Apply { target, reboot }) => {
             run_apply(cli, target, *reboot)?;
         }
     }
     Ok(())
+}
+
+/// 解析启动目标：优先按显示名（自定义名称或固件名）匹配，再回退固件原名，
+/// 保证设置别名后仍可用编号或原始名称定位同一启动项。
+fn resolve_with_settings(
+    entries: &[BootEntry],
+    settings: &Settings,
+    target: &str,
+) -> janus_core::Result<BootEntry> {
+    let parsed = parse_boot_target(target);
+    let mut named = entries.to_vec();
+    settings.apply_names(&mut named);
+    resolve_target(&named, &parsed)
+        .or_else(|display_err| resolve_target(entries, &parsed).map_err(|_| display_err))
+        .cloned()
+}
+
+/// `janus settings`：打开图形设置窗口；dry-run 下窗口只读，不写配置文件。
+fn run_settings(cli: &Cli) -> anyhow::Result<()> {
+    let mgr: Arc<dyn BootManager> = Arc::from(backend(cli)?);
+    let path = Settings::config_file_path().context("无法确定配置文件位置")?;
+    run_settings_window(mgr, &path, cli.dry_run)
 }
 
 /// `janus update`：检查 → 确认 → 下载验签 → 安装。

@@ -1,9 +1,9 @@
 .TH JANUS 1 "2026-11-21" "janus 0.1.0" "User Commands"
 .SH NAME
-janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常驻可选）
+janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常驻 + CLI）
 .SH SYNOPSIS
 .B janus
-.I COMMAND
+.RI [ COMMAND ]
 .RI [ OPTIONS ]
 .SH DESCRIPTION
 .B janus
@@ -22,6 +22,9 @@ janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常�
 .BR sudo (8)）
 重执行自身；Windows 经 UAC（runas）提权，整个会话仅弹一次。
 .SH COMMANDS
+.PP
+不带子命令时默认启动系统托盘（等价于
+.BR tray ）。
 .TP
 .B list
 按 BootOrder 顺序列出启动项；\fB--json\fR 输出 JSON。
@@ -37,8 +40,13 @@ janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常�
 .B --into
 先写入 BootNext。
 .TP
+.B settings
+打开图形设置窗口：勾选要显示的启动项并自定义显示名称，窗口内可查看当前版本
+并检查、下载与安装更新。
+保存后托盘菜单立即重建；设置也可直接编辑配置文件。
+.TP
 .B tray
-常驻系统托盘（Linux 走 ksni/D-Bus，Windows 需管理员）。
+常驻系统托盘（不带子命令时的默认行为；Linux 走 ksni/D-Bus，Windows 需管理员）。
 .TP
 .B update
 自更新：校验 Ed25519 签名清单、下载并原子替换二进制；
@@ -51,6 +59,9 @@ janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常�
 .TP
 .B --dry-run
 全局开关：使用内置 Mock 后端，不触碰真实固件。
+.TP
+.B --all
+全局开关：忽略显示设置，展示全部启动项并使用固件原名。
 .SH ENVIRONMENT
 .TP
 .B JANUS_MANIFEST_URL
@@ -61,6 +72,12 @@ janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常�
 .TP
 .I /sys/firmware/efi/efivars/
 Linux 下的 UEFI 变量文件系统（efivarfs）。
+.TP
+.I $XDG_CONFIG_HOME/janus/config.toml
+显示设置（隐藏项与自定义名称）；未设置
+.B XDG_CONFIG_HOME
+时为
+.IR ~/.config/janus/config.toml "。"
 .SH EXAMPLES
 .TP
 janus next ubuntu

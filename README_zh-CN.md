@@ -37,7 +37,8 @@
 - **原生实现，不借助外部命令。** 不调用 `efibootmgr`、不调用 `bcdedit`——每个字节都在 `janus-core` 里按 `EFI_LOAD_OPTION` 二进制结构解析（UTF-16LE 描述符）。
 - **签名自更新。** `janus update` 先校验 Ed25519 签名清单（[shipup](https://github.com/mangerle/shipup)）再下载，替换二进制前还做 SHA-256 + 包签名双重校验。升级后若连续启动崩溃，会自动回滚。
 - **全程 `--dry-run`。** 内置 Mock 后端，托盘和 CLI 都可以零固件风险地演示。
-- **轻量。** 静态链接，LTO 后 Release 二进制约 3.6 MB；Linux 端零系统库依赖。
+- **可定制的切换列表。** 图形设置窗口可选择显示哪些启动项、自定义显示名称；未配置项默认全部显示，CLI 与托盘共用同一份设置。
+- **单文件。** 静态链接（含图形设置窗口），LTO 后 Release 二进制约 17 MB；Linux 端无硬链接系统库，设置窗口按需使用桌面 OpenGL。
 
 ## 安装
 
@@ -57,13 +58,16 @@ cargo install --git https://github.com/mangerle/janus
 ## 使用
 
 ```
+janus                             无参数：常驻系统托盘（等价于 janus tray）
 janus list                        列出启动项（按 BootOrder 顺序）
 janus next <目标>                  设置 BootNext（不重启）
 janus clear                       清除 BootNext
 janus reboot [--into <目标>]       设置 BootNext 并立即重启
-janus tray                        常驻系统托盘
+janus settings                    打开图形设置：选择显示项与自定义名称
+janus tray                        显式启动系统托盘（常驻）
 janus update [--check] [--yes]    自更新（签名清单校验）
 janus --dry-run ...               Mock 后端，不触碰真实固件
+janus --all ...                   忽略显示设置，展示全部启动项与固件原名
 ```
 
 `<目标>` 可以是 `BootXXXX` 编号（十六进制：`1`、`0x0002`、`Boot0002`），也可以是名称子串（不区分大小写：`ubuntu`、`windows`）。
@@ -81,18 +85,44 @@ $ janus reboot --into "Windows Boot Manager"
 
 ### 托盘
 
-托盘菜单在每次动作后重建，"当前 BootNext"信息行始终如实反映固件状态：
+托盘菜单在每次动作后重建，"当前下次启动"信息行始终如实反映固件状态：
 
 ```
-当前下次启动（BootNext）：未设置
+当前下次启动：未设置
 ────────────────────────────────────
-重启并进入…            → Boot0001  Windows Boot Manager
+重启并进入：            → Boot0001  Windows Boot Manager
                         Boot0002  ubuntu
-仅设置下次启动（不重启） → …
+仅下次启动              → …
 清除 BootNext
-立即重启（不改启动项）
+立即重启
 ────────────────────────────────────
+设置
 退出
+```
+
+**Linux** 上托盘以普通用户运行在你的桌面会话中；每次切换都经 `pkexec`（polkit 密码框*本身就是*确认步骤）调起隐藏的 `janus _apply` 特权 helper。**Windows** 上托盘启动时经 UAC 重执行一次（整个会话只弹一次密码），重启前用 `MessageBoxW` 弹"是/否"确认。想彻底免弹窗，可在任务计划程序中勾选*使用最高权限运行*让托盘静默提权启动。
+
+### 显示设置
+
+托盘菜单的“设置”或 `janus settings` 会打开图形设置窗口：勾选要显示在托盘与 CLI
+列表中的启动项，并可填写自定义显示名称。设置文件位置：
+
+- Linux：`$XDG_CONFIG_HOME/janus/config.toml`（未设置时 `~/.config/janus/config.toml`）
+- Windows：`%APPDATA%\janus\config.toml`
+
+未配置的启动项默认显示并使用固件原名，新出现的启动项自动可见。隐藏只影响列表
+展示，按编号（如 `janus next Boot0003`）仍可直接指定；`--all` 可临时忽略全部设置。
+保存后托盘会立即重建菜单。
+
+窗口右上角显示当前版本并提供“检查更新”：检查、下载、验签与安装都在窗口内完成，
+成功后重启 janus（含托盘）生效；安装目录不可写时会提示改用管理员/root 运行。
+
+```toml
+[entries.Boot0001]
+name = "工作 Windows"
+
+[entries.Boot0003]
+hidden = true
 ```
 
 **Linux** 上托盘以普通用户运行在你的桌面会话中；每次切换都经 `pkexec`（polkit 密码框*本身就是*确认步骤）调起隐藏的 `janus _apply` 特权 helper。**Windows** 上托盘启动时经 UAC 重执行一次（整个会话只弹一次密码），重启前用 `MessageBoxW` 弹"是/否"确认。想彻底免弹窗，可在任务计划程序中勾选*使用最高权限运行*让托盘静默提权启动。

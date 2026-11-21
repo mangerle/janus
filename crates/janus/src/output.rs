@@ -36,6 +36,10 @@ pub(crate) fn print_entries(
     }
 
     println!("{:<10} {:<34} 状态", "编号", "名称");
+    if entries.is_empty() {
+        println!("（没有可显示的启动项；--all 可查看全部，janus settings 可调整显示设置）");
+        return;
+    }
     for e in entries {
         let mut status = if e.active { "活跃" } else { "未启用" }.to_string();
         if boot_next == Some(e.id) {

@@ -348,17 +348,18 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
             <aside class="tray-pane">
               <div class="tray-caption">托盘弹出菜单</div>
               <div class="tray-menu">
-                <div class="menu-info">当前下次启动（BootNext）：未设置</div>
+                <div class="menu-info">当前下次启动：未设置</div>
                 <div class="menu-sep"></div>
-                <div class="menu-group">重启并进入…</div>
+                <div class="menu-group">重启并进入：</div>
                 <div class="menu-item"><span class="sw indigo"></span>Boot0001 Windows Boot Manager</div>
                 <div class="menu-item hover"><span class="sw amber"></span>Boot0002 ubuntu</div>
                 <div class="menu-item"><span class="sw dark"></span>Boot0003 UEFI: SanDisk</div>
                 <div class="menu-sep"></div>
-                <div class="menu-item">仅设置下次启动（不重启）<span class="arrow">▸</span></div>
+                <div class="menu-item">仅下次启动<span class="arrow">▸</span></div>
                 <div class="menu-item">清除 BootNext</div>
-                <div class="menu-item">立即重启（不改启动项）</div>
+                <div class="menu-item">立即重启</div>
                 <div class="menu-sep"></div>
+                <div class="menu-item">设置</div>
                 <div class="menu-item">退出</div>
               </div>
             </aside>
@@ -448,8 +449,8 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
         <h2 class="heading-3">菜单跟着固件状态走</h2>
         <p class="body-lg">托盘以普通用户身份运行在你的桌面会话里；每次切换动作经 pkexec 调起特权 helper——polkit 的密码输入框本身就是确认步骤，取消即反悔。</p>
         <ul class="feature-list">
-          <li><svg class="icon"><use href="#i-check"/></svg><span>每次动作后重建菜单，"当前 BootNext"信息行始终如实反映固件。</span></li>
-          <li><svg class="icon"><use href="#i-check"/></svg><span>"重启并进入"与"仅设置下次启动"分开，避免误触立即重启。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>每次动作后重建菜单，"当前下次启动"信息行始终如实反映固件。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>"重启并进入"与"仅下次启动"分开，避免误触立即重启。</span></li>
           <li><svg class="icon"><use href="#i-check"/></svg><span>Linux 走 ksni 纯 D-Bus 后端，零 GTK / libappindicator 系统库依赖。</span></li>
           <li><svg class="icon"><use href="#i-check"/></svg><span>Windows 启动时经 UAC 提权一次，重启前弹 MessageBoxW 确认。</span></li>
         </ul>
@@ -461,14 +462,15 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
             <div class="kv-panel" style="gap:0">
               <div class="kv-title">托盘菜单（动作后自动重建）</div>
               <div class="tray-menu" style="margin-top:12px">
-                <div class="menu-info">当前下次启动（BootNext）：Boot0002</div>
+                <div class="menu-info">当前下次启动：Boot0002</div>
                 <div class="menu-sep"></div>
-                <div class="menu-group">重启并进入…</div>
+                <div class="menu-group">重启并进入：</div>
                 <div class="menu-item"><span class="sw indigo"></span>Boot0001 Windows Boot Manager</div>
                 <div class="menu-item hover"><span class="sw amber"></span>Boot0002 ubuntu <span class="menu-check">当前</span></div>
                 <div class="menu-sep"></div>
                 <div class="menu-item">清除 BootNext</div>
-                <div class="menu-item">立即重启（不改启动项）</div>
+                <div class="menu-item">立即重启</div>
+                <div class="menu-item">设置</div>
                 <div class="menu-item">退出</div>
               </div>
               <p style="margin:14px 0 0;font-size:11px;color:var(--muted)">点击"重启并进入" → polkit 密码框 → <code style="color:#D6DDEB">pkexec janus _apply 0002 --reboot</code> → 重启。</p>

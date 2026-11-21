@@ -37,7 +37,8 @@ Everything talks to the firmware through **native platform APIs**:
 - **Native, not shelled out.** No `efibootmgr`, no `bcdedit` — every byte is parsed from the `EFI_LOAD_OPTION` binary structure (UTF-16LE descriptors) in `janus-core`.
 - **Signed self-updates.** `janus update` verifies an Ed25519-signed manifest ([shipup](https://github.com/mangerle/shipup)) before downloading, then double-checks SHA-256 + package signature before replacing the binary. A broken update that crashes at startup is rolled back automatically.
 - **`--dry-run` everything.** A built-in mock backend lets you demo the tray and CLI without touching real firmware.
-- **Small.** Statically linked, ~3.6 MB release binary with LTO; zero system library dependencies on Linux.
+- **Customizable switch list.** A graphical settings window lets you choose which boot entries appear and rename them; unconfigured entries stay visible, and the CLI and tray share the same settings.
+- **Single binary.** Statically linked (graphical settings included), ~17 MB release binary with LTO; no hard-linked system libraries on Linux — the settings window uses the desktop's OpenGL at runtime.
 
 ## Install
 
@@ -57,13 +58,16 @@ cargo install --git https://github.com/mangerle/janus
 ## Usage
 
 ```
+janus                             No args: resident tray app (same as janus tray)
 janus list                        List boot entries (BootOrder order)
 janus next <target>               Set BootNext (no reboot)
 janus clear                       Clear BootNext
 janus reboot [--into <target>]    Set BootNext and reboot now
-janus tray                        Resident tray app
+janus settings                    Graphical settings: visibility and display names
+janus tray                        Explicitly start the resident tray app
 janus update [--check] [--yes]    Self-update (signed manifest)
 janus --dry-run ...               Mock backend, never touches firmware
+janus --all ...                   Ignore display settings; show every entry with firmware names
 ```
 
 `<target>` is a `BootXXXX` id (hex: `1`, `0x0002`, `Boot0002`) or a case-insensitive name substring (`ubuntu`, `windows`).
@@ -81,21 +85,51 @@ $ janus reboot --into "Windows Boot Manager"
 
 ### Tray
 
-The tray menu is rebuilt after every action so the "current BootNext" line stays truthful:
+The tray menu is rebuilt after every action so the "current next boot" line stays truthful:
 
 ```
-当前下次启动（BootNext）：未设置
+当前下次启动：未设置
 ────────────────────────────────────
-重启并进入…            → Boot0001  Windows Boot Manager
+重启并进入：            → Boot0001  Windows Boot Manager
                         Boot0002  ubuntu
-仅设置下次启动（不重启） → …
+仅下次启动              → …
 清除 BootNext
-立即重启（不改启动项）
+立即重启
 ────────────────────────────────────
+设置
 退出
 ```
 
 On **Linux** the tray runs unprivileged in your desktop session; every switch goes through `pkexec` (the polkit password box *is* the confirmation), which calls a hidden `janus _apply` helper as root. On **Windows** the tray re-executes itself elevated once at startup (single UAC prompt) and shows a `MessageBoxW` yes/no dialog before rebooting. To silence the UAC prompt entirely, create a Task Scheduler entry with *Run with highest privileges*.
+
+### Display settings
+
+"设置" in the tray menu (or `janus settings`) opens a graphical window where you
+can choose which boot entries appear in the tray and CLI lists, and give them
+custom display names. The settings file lives at:
+
+- Linux: `$XDG_CONFIG_HOME/janus/config.toml` (defaults to `~/.config/janus/config.toml`)
+- Windows: `%APPDATA%\janus\config.toml`
+
+Unconfigured entries stay visible with their firmware names, so newly added
+operating systems show up automatically. Hiding only affects list display;
+entries remain addressable by ID (e.g. `janus next Boot0003`), and `--all`
+temporarily ignores all display settings. The tray menu is rebuilt as soon as
+settings are saved.
+
+The current version is shown in the window header together with a
+"检查更新" (check for updates) button; checking, downloading, signature
+verification and installation all happen in the window. Restart janus
+(including the tray) afterwards; if the install directory is not writable,
+the window tells you to rerun with administrator/root privileges.
+
+```toml
+[entries.Boot0001]
+name = "Work Windows"
+
+[entries.Boot0003]
+hidden = true
+```
 
 ### Self-update
 

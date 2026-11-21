@@ -18,19 +18,27 @@ janus-tray = { workspace = true }
 janus-updater = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
+eframe = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 system_shutdown = { workspace = true }
+toml = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 janus-backend-linux = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 janus-backend-windows = { workspace = true }
-# Windows 托盘确认对话框用 MessageBoxW
+# Windows 托盘确认对话框用 MessageBoxW；无黑窗托盘需附加父控制台
 windows = { workspace = true, features = [
     "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
     "Win32_UI_WindowsAndMessaging",
 ] }
 

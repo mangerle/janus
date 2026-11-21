@@ -10,6 +10,8 @@ authors.workspace = true
 [dependencies]
 log = "0.4"
 janus-core = { workspace = true }
+# 托盘与“设置保存后重载”信号的多路等待（Linux select / Windows 转发线程）
+crossbeam-channel = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Linux 使用 ksni（纯 D-Bus StatusNotifierItem）后端，无需 libappindicator/GTK 系统库；
