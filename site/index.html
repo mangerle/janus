@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Janus — Windows ↔ Linux 双系统一键切换</title>
+<meta name="description" content="Janus 是用 Rust 编写的跨平台 UEFI 启动切换工具：写入 BootNext 并重启，一键进入另一个系统。托盘常驻、纯原生 API、Ed25519 签名自更新，不依赖 efibootmgr / bcdedit。">
+<meta name="theme-color" content="#0D1117">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://mangerle.github.io/janus/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="Janus — Windows ↔ Linux 双系统一键切换">
+<meta property="og:description" content="写入 UEFI BootNext 并重启，一键进入另一个系统。纯 Rust 原生实现，托盘常驻，签名自更新。">
+<meta property="og:url" content="https://mangerle.github.io/janus/">
+<meta property="og:image" content="https://mangerle.github.io/janus/assets/janus-social.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Janus — UEFI Boot Switcher">
+<meta name="twitter:description" content="写入 UEFI BootNext 并重启，一键进入另一个系统。">
+<meta name="twitter:image" content="https://mangerle.github.io/janus/assets/janus-social.png">
+<script>document.documentElement.classList.add('js');</script>
+<style>
+@font-face{font-family:"Janus Sans";src:local("Inter"),local("Manrope"),local("Noto Sans SC"),local("PingFang SC");font-style:normal;font-weight:100 900;font-display:swap}
+:root{
+  --bg:#0D1117;--surface-1:#131A25;--surface-2:#1B2130;--surface-3:#232B3D;--surface-4:#2C3549;
+  --text:#E6EDF3;--muted:#8B96A8;--soft:#C4CDDA;--line:rgba(139,150,168,.18);
+  --accent:#5B6CE8;--accent-strong:#8B97F2;--accent-ink:#0B1030;--gold:#F29E38;--amber-strong:#FFB65C;
+  --ok:#34D399;--danger:#F87171;--radius-sm:9px;--radius-md:14px;--radius-lg:20px;--radius-xl:28px;
+  --curve:cubic-bezier(.22,1,.36,1);--shadow:0 32px 90px -36px rgba(0,0,0,.92),inset 0 1px 0 rgba(255,255,255,.05)
+}
+*{box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  margin:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+  color:var(--text);background:var(--bg);
+  font:400 16px/1.5 "Janus Sans","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility
+}
+body::before{
+  content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(70% 58% at 52% -10%,rgba(61,78,198,.26),transparent 68%),
+    radial-gradient(36% 30% at 94% 12%,rgba(242,158,56,.11),transparent 72%),
+    radial-gradient(34% 26% at 8% 80%,rgba(61,78,198,.08),transparent 76%)
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.17;
+  background-image:linear-gradient(rgba(139,150,168,.13) 1px,transparent 1px),linear-gradient(90deg,rgba(139,150,168,.13) 1px,transparent 1px);
+  background-size:56px 56px;-webkit-mask-image:radial-gradient(82% 66% at 50% 8%,#000,transparent 88%);mask-image:radial-gradient(82% 66% at 50% 8%,#000,transparent 88%)
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit}
+img{display:block;max-width:100%;height:auto;object-fit:contain}
+button,a{-webkit-tap-highlight-color:transparent}
+::selection{background:var(--accent);color:#fff}
+.skip-link{position:fixed;left:16px;top:-80px;z-index:100;padding:8px 12px;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-ink)}
+.skip-link:focus{top:12px}
+.container{width:min(1180px,calc(100% - 40px));margin-inline:auto}
+.icon{width:24px;height:24px;fill:currentColor;flex:none}
+.sprite{position:absolute;width:0;height:0;overflow:hidden}
+.heading-1{font-size:56px;line-height:1.05;font-weight:650;letter-spacing:-.05em}
+.heading-2{font-size:42px;line-height:1.1;font-weight:650;letter-spacing:-.045em}
+.heading-3{font-size:34px;line-height:1.14;font-weight:650;letter-spacing:-.04em}
+.body-lg{font-size:17px;line-height:1.75;color:var(--muted)}
+.body-md{font-size:15px;line-height:1.7;color:var(--muted)}
+.body-sm{font-size:13px;line-height:1.65;color:var(--muted)}
+.kicker{display:inline-flex;align-items:center;gap:8px;color:var(--accent-strong);font-size:12px;line-height:16px;font-weight:650;letter-spacing:.04em}
+.kicker::before{content:"";width:7px;height:7px;border-radius:999px;background:currentColor;box-shadow:0 0 16px currentColor}
+.gradient-text{display:block;background:linear-gradient(100deg,#fff 4%,#8B97F2 44%,#5B6CE8 68%,#F29E38);-webkit-background-clip:text;background-clip:text;color:transparent}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:0 18px;border:1px solid transparent;border-radius:12px;font-size:14px;line-height:20px;font-weight:650;transition:transform .2s var(--curve),background-color .2s,border-color .2s,color .2s}
+.button:hover{transform:translateY(-1px)}
+.button-primary{background:var(--accent);color:#fff;box-shadow:0 12px 30px -14px rgba(91,108,232,.75)}
+.button-primary:hover{background:var(--accent-strong)}
+.button-amber{background:var(--gold);color:#241503;box-shadow:0 12px 30px -14px rgba(242,158,56,.7)}
+.button-amber:hover{background:var(--amber-strong)}
+.button-secondary{border-color:var(--line);background:rgba(255,255,255,.045);color:var(--text)}
+.button-secondary:hover{border-color:rgba(255,255,255,.26);background:rgba(255,255,255,.075)}
+:focus-visible{outline:2px solid var(--accent-strong);outline-offset:3px}
+
+.site-header{position:relative;z-index:50;padding:14px 0 8px;background:linear-gradient(to bottom,var(--bg) 0,var(--bg) 70%,rgba(13,17,23,.84) 70%,rgba(13,17,23,0) 100%)}
+.nav-bar{height:64px;display:flex;align-items:center;justify-content:space-between;gap:22px;padding:0 10px 0 18px;border:1px solid var(--line);border-radius:18px;background:rgba(13,17,23,.9);box-shadow:var(--shadow);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%)}
+.brand{display:flex;align-items:center;gap:9px;font-size:16px;line-height:24px;font-weight:680;letter-spacing:-.02em}
+.brand img{width:34px;height:34px;border-radius:9px}
+.nav-links{display:flex;align-items:center;gap:20px}
+.nav-link{position:relative;padding:7px 0;border:0;background:none;color:var(--muted);font-size:13px;line-height:18px;font-weight:550;cursor:pointer;transition:color .2s}
+.nav-link:hover,.nav-link:focus-visible,.nav-link[aria-current="page"]{color:var(--text)}
+.nav-link[aria-current="page"]::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--accent-strong)}
+.nav-actions{display:flex;align-items:center;gap:8px}
+.nav-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;color:var(--muted);transition:color .2s,background-color .2s}
+.nav-icon:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.menu-toggle{display:none;position:relative;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:10px;background:transparent;color:var(--text);cursor:pointer}
+.menu-toggle span{position:absolute;width:19px;height:2px;background:currentColor;transition:transform .35s var(--curve),opacity .2s}
+.menu-toggle span:first-child{transform:translateY(-6px)}
+.menu-toggle span:last-child{transform:translateY(6px)}
+body.menu-open .menu-toggle span:first-child{transform:rotate(45deg)}
+body.menu-open .menu-toggle span:nth-child(2){opacity:0}
+body.menu-open .menu-toggle span:last-child{transform:rotate(-45deg)}
+.mobile-menu{position:fixed;inset:0;z-index:45;display:none;padding:104px 24px 32px;background:rgba(13,17,23,.98);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);opacity:0;visibility:hidden;transition:opacity .35s,visibility .35s}
+.mobile-menu button{display:block;width:100%;padding:13px 0;border:0;background:none;color:var(--muted);text-align:left;font-size:27px;line-height:1.35;font-weight:560;opacity:0;transform:translateY(18px);transition:opacity .4s var(--curve),transform .4s var(--curve),color .2s;transition-delay:calc(var(--i) * 42ms)}
+body.menu-open .mobile-menu{opacity:1;visibility:visible}
+body.menu-open .mobile-menu button{opacity:1;transform:none}
+
+.deck{position:relative;min-height:0;overflow:hidden;isolation:isolate;outline:none}
+.slide{position:absolute;inset:0;display:block;padding:8px 0 20px;overflow-y:auto;overscroll-behavior:contain;opacity:0;visibility:hidden;transform:translateY(32px);pointer-events:none;transition:opacity .45s var(--curve),transform .6s var(--curve),visibility .45s;scrollbar-width:thin;scrollbar-color:var(--surface-4) transparent}
+.slide.is-before{transform:translateY(-32px)}
+.slide.is-active{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+.slide-inner{width:min(1180px,calc(100% - 40px));min-height:100%;margin-inline:auto;display:flex;flex-direction:column;justify-content:center}
+.hero-layout{display:grid;grid-template-columns:minmax(0,.9fr) minmax(480px,1.1fr);grid-template-areas:"copy visual" "stats stats";align-items:center;gap:26px 54px}
+.hero-copy{grid-area:copy;max-width:570px}
+.hero-copy h1{max-width:590px;margin:18px 0 0;text-wrap:balance}
+.hero-copy .body-lg{max-width:560px;margin:18px 0 0}
+.hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.proof-line{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:18px;color:var(--muted);font-size:13px;line-height:20px}
+.proof-item{display:flex;align-items:center;gap:7px}
+.proof-item .icon{width:16px;height:16px;color:var(--amber-strong)}
+.stat-strip{grid-area:stats;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:18px;background:rgba(19,26,37,.8);box-shadow:inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden}
+.stat{padding:13px 19px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:0}
+.stat strong{display:block;font-size:21px;line-height:25px;letter-spacing:-.03em;color:var(--text)}
+.stat span{display:block;margin-top:3px;font-size:11px;line-height:16px;color:var(--muted)}
+
+/* hero 仿真窗口：托盘弹出菜单 + 终端 */
+.app-window{overflow:hidden;border:1px solid rgba(139,151,242,.22);border-radius:var(--radius-lg);background:linear-gradient(150deg,#131A25,#0C111A);box-shadow:0 38px 90px -38px rgba(0,0,0,.96),inset 0 1px 0 rgba(255,255,255,.06)}
+.hero-visual{grid-area:visual;padding:7px;border:1px solid rgba(139,151,242,.18);border-radius:24px;background:rgba(27,33,48,.76);box-shadow:var(--shadow)}
+.app-titlebar{height:36px;display:flex;align-items:center;gap:14px;padding:0 12px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.018)}
+.traffic{display:flex;gap:6px}
+.traffic i{width:8px;height:8px;border-radius:50%;background:#F87171}.traffic i:nth-child(2){background:#F29E38}.traffic i:nth-child(3){background:#34D399}
+.app-title{font-size:10px;color:var(--muted);letter-spacing:.05em}
+.app-body{display:grid;grid-template-columns:216px minmax(0,1fr);min-height:352px}
+.tray-pane{border-right:1px solid var(--line);background:rgba(8,12,19,.55);padding:12px 10px}
+.tray-caption{font-size:8.5px;letter-spacing:.09em;color:var(--muted);text-transform:uppercase;margin-bottom:9px}
+.tray-menu{border:1px solid var(--line);border-radius:10px;background:rgba(27,33,48,.96);box-shadow:0 16px 34px -16px #000;overflow:hidden}
+.menu-info{padding:8px 11px;font-size:8.5px;color:var(--muted)}
+.menu-sep{height:1px;background:var(--line)}
+.menu-item{display:flex;align-items:center;gap:7px;padding:7px 11px;font-size:9px;color:var(--soft)}
+.menu-item .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.menu-item .sw.indigo{background:var(--accent)}
+.menu-item .sw.amber{background:var(--gold)}
+.menu-item .sw.dark{background:var(--surface-3)}
+.menu-item.hover{background:rgba(91,108,232,.2);color:#fff;box-shadow:inset 2px 0 0 var(--accent)}
+.menu-item .arrow{margin-left:auto;color:var(--muted);font-size:8px}
+.menu-group{padding:6px 11px 3px;font-size:7.5px;font-weight:650;letter-spacing:.07em;color:var(--muted);text-transform:uppercase}
+.menu-check{margin-left:auto;color:var(--amber-strong);font-size:8px}
+.app-main{min-width:0;display:flex;flex-direction:column;background:#0B111B}
+.app-tabs{height:31px;display:flex;align-items:flex-end;gap:1px;padding:0 8px;border-bottom:1px solid var(--line);background:#111826}
+.app-tab{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;border:1px solid transparent;border-bottom:0;border-radius:6px 6px 0 0;color:#8B96A8;font-size:8px}
+.app-tab.active{border-color:var(--line);background:#161D2C;color:#DBE3EE}
+.tab-dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.terminal-pane{position:relative;min-width:0;padding:10px 12px;background:#0C1220;overflow:hidden;flex:1}
+.pane-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;color:#8B96A8;font-size:7.5px}
+.pane-head span:first-child{color:#B9C3D4}
+.terminal-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:8px/1.85 "SFMono-Regular",Consolas,"Liberation Mono",monospace;color:#9AA6BC}
+.terminal-line .prompt{color:var(--amber-strong)}.terminal-line .ok{color:var(--ok)}.terminal-line .warn{color:var(--gold)}.terminal-line .err{color:var(--danger)}.terminal-line .dim{color:#5E6A80}.terminal-line .info{color:var(--accent-strong)}
+.terminal-cursor{display:inline-block;width:4px;height:8px;margin-left:2px;vertical-align:-1px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:.2}}
+.app-status{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 9px;border-top:1px solid var(--line);background:#0E1420;color:#7E8AA0;font-size:7.5px}
+.status-chips{display:flex;gap:10px}.status-chips b{font-weight:500;color:#AAB4C8}
+
+.section-layout{display:flex;flex-direction:column;gap:24px}
+.section-heading{max-width:800px}
+.section-heading h2{margin:10px 0 0;text-wrap:balance}
+.section-heading p{margin:10px 0 0;max-width:700px}
+.benefit-grid,.platform-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.benefit-card,.platform-card{position:relative;padding:20px;border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(145deg,rgba(35,43,61,.68),rgba(19,26,37,.86));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden}
+.benefit-card::after,.platform-card::after{content:"";position:absolute;width:120px;height:120px;right:-50px;top:-60px;border-radius:50%;background:radial-gradient(circle,rgba(91,108,232,.16),transparent 68%);pointer-events:none}
+.benefit-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.icon-box{display:grid;place-items:center;width:38px;height:38px;border:1px solid rgba(139,151,242,.22);border-radius:11px;background:rgba(91,108,232,.1);color:var(--accent-strong)}
+.icon-box .icon{width:20px;height:20px}
+.icon-box.gold{border-color:rgba(242,158,56,.22);background:rgba(242,158,56,.1);color:var(--gold)}
+.index-pill{display:inline-flex;align-items:center;justify-content:center;min-width:31px;height:22px;padding:0 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font:600 10px/1 "SFMono-Regular",Consolas,monospace}
+.benefit-card h3,.platform-card h3{margin:0;font-size:18px;line-height:1.32;font-weight:650;letter-spacing:-.02em}
+.benefit-card p,.platform-card p{margin:8px 0 0;font-size:13px;line-height:1.65;color:var(--muted)}
+.card-caption{display:inline-flex;align-items:center;gap:6px;margin-top:14px;color:#B9C3F0;font-size:11px;line-height:17px}
+.card-caption::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+.feature-layout{display:grid;grid-template-columns:minmax(0,.82fr) minmax(480px,1.18fr);align-items:center;gap:54px}
+.feature-layout.reverse{grid-template-columns:minmax(480px,1.18fr) minmax(0,.82fr)}
+.feature-copy h2{margin:10px 0 0;text-wrap:balance}
+.feature-copy .body-lg{margin:12px 0 0}
+.feature-list{display:grid;gap:10px;margin:20px 0 0;padding:0;list-style:none}
+.feature-list li{display:flex;gap:9px;align-items:flex-start;color:var(--soft);font-size:13px;line-height:1.6}
+.feature-list .icon{width:16px;height:16px;margin-top:2px;color:var(--accent-strong)}
+.media-card{min-width:0;padding:8px;border:1px solid rgba(139,151,242,.17);border-radius:22px;background:linear-gradient(145deg,rgba(35,43,61,.7),rgba(12,17,26,.85));box-shadow:var(--shadow)}
+.media-card-inner{overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#101624}
+
+.board{display:grid;grid-template-columns:1.06fr .94fr;gap:12px;padding:12px;min-height:330px}
+.board-stack{display:grid;grid-template-rows:repeat(3,1fr);gap:10px}
+.board-item{display:flex;align-items:flex-start;gap:12px;padding:15px;border:1px solid var(--line);border-radius:14px;background:rgba(27,33,48,.68)}
+.board-item .icon-box{width:32px;height:32px;flex:none}.board-item .icon-box .icon{width:17px;height:17px}
+.board-item h3{margin:0;font-size:14px;font-weight:650}.board-item p{margin:4px 0 0;font-size:11px;line-height:1.55;color:var(--muted)}
+.kv-panel{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:20px;border:1px solid var(--line);border-radius:16px;background:radial-gradient(circle at 72% 15%,rgba(91,108,232,.15),transparent 38%),rgba(11,17,26,.82);overflow:hidden}
+.kv-panel::before{content:"";position:absolute;inset:18px;border:1px solid rgba(139,151,242,.09);border-radius:50%;pointer-events:none}
+.kv-title{position:relative;font-size:10px;font-weight:650;letter-spacing:.12em;color:#93A0B8}
+.kv-list{position:relative;display:grid;gap:11px}
+.kv-row{display:flex;justify-content:space-between;gap:12px;padding-bottom:9px;border-bottom:1px solid var(--line);font-size:10px}
+.kv-row:last-child{border-bottom:0}.kv-row span{color:#7E8AA0}.kv-row code{color:#D6DDEB;font:9px "SFMono-Regular",Consolas,monospace}
+
+.platform-note{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:rgba(19,26,37,.65);color:var(--muted);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;min-height:23px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.035);color:#AAB4C8;font-size:10px;line-height:15px;white-space:nowrap}
+.platform-card .chips{margin-top:14px}
+.platform-icon{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.035);color:var(--accent-strong)}
+.platform-icon .icon{width:21px;height:21px}
+.platform-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+
+.download-layout{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(420px,.98fr);gap:42px;align-items:center}
+.cta-panel{padding:28px;border:1px solid rgba(139,151,242,.21);border-radius:var(--radius-xl);background:radial-gradient(circle at 94% 4%,rgba(91,108,232,.18),transparent 36%),linear-gradient(145deg,rgba(35,43,61,.82),rgba(10,15,23,.9));box-shadow:var(--shadow)}
+.cta-panel h2{margin:12px 0 0;text-wrap:balance}
+.cta-panel p{max-width:560px;margin:12px 0 0;color:var(--muted);font-size:14px;line-height:1.7}
+.cta-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.cta-meta{display:flex;flex-wrap:wrap;gap:10px 20px;margin-top:17px;color:#93A0B8;font-size:11px}
+.cta-meta span{display:flex;align-items:center;gap:6px}.cta-meta .icon{width:14px;height:14px;color:var(--amber-strong)}
+.faq-list{display:grid;gap:8px}
+.faq-list details{border:1px solid var(--line);border-radius:13px;background:rgba(19,26,37,.7);overflow:hidden}
+.faq-list summary{position:relative;padding:14px 42px 14px 16px;color:#CDD5E1;font-size:13px;line-height:1.45;font-weight:570;cursor:pointer;list-style:none}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list summary::after{content:"";position:absolute;right:17px;top:19px;width:7px;height:7px;border-right:1px solid var(--muted);border-bottom:1px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
+.faq-list details[open] summary::after{transform:rotate(225deg);top:22px}
+.faq-list p{margin:0;padding:0 16px 15px;color:var(--muted);font-size:12px;line-height:1.65}
+
+.site-footer{position:relative;z-index:20;padding:6px 0;background:linear-gradient(to top,var(--bg),rgba(13,17,23,.96))}
+.progress-rail{position:absolute;left:0;right:0;top:0;height:1px;background:rgba(255,255,255,.055)}
+.progress-bar{display:block;width:100%;height:100%;background:linear-gradient(90deg,var(--accent),var(--gold));transform:scaleX(.143);transform-origin:left;transition:transform .45s var(--curve)}
+.footer-inner{height:38px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.footer-brand{font-size:10px;letter-spacing:.03em;color:#7E8AA0}
+.footer-hint{font-size:10px;color:#6E7B92}
+.deck-controls{display:flex;align-items:center;gap:9px}
+.icon-button{display:grid;place-items:center;width:31px;height:31px;padding:0;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.035);color:#AAB4C8;cursor:pointer;transition:background-color .2s,color .2s,border-color .2s}
+.icon-button:hover:not(:disabled){border-color:rgba(139,151,242,.32);background:rgba(91,108,232,.12);color:var(--text)}
+.icon-button:disabled{opacity:.28;cursor:not-allowed}
+.icon-button .icon{width:16px;height:16px}.icon-button.prev .icon{transform:rotate(180deg)}
+.slide-counter{min-width:70px;text-align:center;font:10px "SFMono-Regular",Consolas,monospace;color:#7E8AA0}
+.slide-counter strong{color:#DBE3EE;font-weight:600}
+
+@media(max-width:1040px){
+  .heading-1{font-size:48px}.heading-2{font-size:36px}.heading-3{font-size:30px}
+  .hero-layout{grid-template-columns:minmax(0,.9fr) minmax(420px,1.1fr);gap:24px 34px}
+  .feature-layout,.feature-layout.reverse{gap:34px;grid-template-columns:minmax(0,.84fr) minmax(420px,1.16fr)}
+  .feature-layout.reverse{grid-template-columns:minmax(420px,1.16fr) minmax(0,.84fr)}
+  .nav-links{gap:15px}
+}
+@media(max-width:860px){
+  html,body{height:auto;min-height:100%;overflow:auto}
+  body{display:block}
+  .site-header{position:sticky;top:0}
+  .nav-bar{margin-inline:16px}.container{width:min(100% - 32px,720px)}
+  .nav-links,.nav-actions .github-link{display:none}.menu-toggle{display:grid}.mobile-menu{display:block}
+  .slide{position:relative;inset:auto;min-height:calc(100svh - 86px);opacity:1;visibility:visible;transform:none;pointer-events:auto;padding:24px 0 40px}
+  .js .slide:not(.is-active){display:none}.slide-inner{min-height:0;justify-content:flex-start}
+  .hero-layout{grid-template-columns:1fr;grid-template-areas:"copy" "visual" "stats";gap:24px}
+  .hero-copy{max-width:none}.hero-copy h1{max-width:680px}
+  .stat-strip{grid-template-columns:1fr 1fr 1fr}
+  .benefit-grid,.platform-grid{grid-template-columns:1fr}
+  .feature-layout,.feature-layout.reverse{grid-template-columns:1fr;gap:24px}.feature-layout.reverse .feature-copy{order:1}.feature-layout.reverse .media-card{order:2}
+  .board{grid-template-columns:1fr}.board-stack{grid-template-rows:auto}
+  .download-layout{grid-template-columns:1fr;gap:24px}
+  .site-footer{position:relative}.footer-hint{display:none}
+}
+@media(max-width:560px){
+  .site-header{padding-top:10px}.nav-bar{height:56px;padding-left:12px}.brand img{width:30px;height:30px}
+  .heading-1{font-size:38px;letter-spacing:-.045em}.heading-2{font-size:30px}.heading-3{font-size:27px}.body-lg{font-size:15px}.body-md{font-size:14px}
+  .hero-copy h1{margin-top:15px}.hero-copy .body-lg{margin-top:15px}.hero-actions .button{width:100%}
+  .proof-line{gap:7px 14px;font-size:11px}.stat-strip{grid-template-columns:1fr}.stat{border-right:0;border-bottom:1px solid var(--line)}.stat:last-child{border-bottom:0}
+  .app-body{grid-template-columns:1fr}.tray-pane{border-right:0;border-bottom:1px solid var(--line)}
+  .benefit-card,.platform-card{padding:17px}.benefit-top{margin-bottom:13px}
+  .media-card{padding:6px;border-radius:18px}.board{min-height:0}
+  .platform-note{align-items:flex-start;flex-direction:column}.cta-panel{padding:22px}.cta-actions .button{width:100%}
+  .footer-brand{font-size:9px}.slide-counter{min-width:58px}.icon-button{width:29px;height:29px}.footer-inner{height:36px}.mobile-menu button{font-size:23px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
+</style>
+<noscript><style>html,body{height:auto;overflow:auto}body{display:block}.slide{position:relative;inset:auto;min-height:100vh;opacity:1;visibility:visible;transform:none;pointer-events:auto}.site-footer{position:sticky}</style></noscript>
+</head>
+<body>
+<a class="skip-link" href="#overview">跳到页面正文</a>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-switch" viewBox="0 0 24 24"><path d="M7 6h10a6 6 0 0 1 0 12H7A6 6 0 0 1 7 6Zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm10 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2Z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 8 3v6c0 5.1-3.4 9.4-8 11-4.6-1.6-8-5.9-8-11V5l8-3Zm0 2.2L6 6.4V11c0 3.8 2.4 7.1 6 8.7 3.6-1.6 6-4.9 6-8.7V6.4l-6-2.2Zm-1 4h2v5h-2V8.2Zm0 6.5h2v2h-2v-2Z"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 2h6v2h-1v5.1l5.4 9.6A2 2 0 0 1 17.6 22H6.4a2 2 0 0 1-1.8-3.3L10 9.1V4H9V2Zm3 9.2L8.6 18h6.8L12 11.2Z"/></symbol>
+  <symbol id="i-feather" viewBox="0 0 24 24"><path d="M20.2 3.8a5.6 5.6 0 0 0-8 0l-8.6 8.7a1 1 0 0 0-.3.7L3 19.6a1 1 0 0 0 1.2 1.2l6.4-.3a1 1 0 0 0 .7-.3l8.9-8.7a5.6 5.6 0 0 0 0-7.7ZM11 17l-4.5.2 4.8-4.7 1.9 1.9L11 17Z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 1-9.8 12h2.1A8 8 0 1 0 6.3 7.7L9 10H2V3l3 3A9.9 9.9 0 0 1 12 2Zm-1 5h2v4.6l3 1.8-1 1.7-4-2.4V7Z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M11 3h2v10l3-3 1.4 1.4L12 17l-5.4-5.6L8 10l3 3V3ZM4 19h16v2H4v-2Z"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24"><path d="M12 .8a11.2 11.2 0 0 0-3.5 21.8c.5.1.7-.2.7-.5v-2.1c-2.8.6-3.4-1.2-3.4-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 0 1.5 1.1 1.5 1.1.9 1.5 2.4 1.1 3 .8.1-.7.4-1.1.7-1.4-2.2-.3-4.6-1.1-4.6-4.9 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.7.7 1 1.6 1 2.7 0 3.8-2.4 4.6-4.6 4.9.4.3.7.9.7 1.9V22c0 .3.2.6.7.5A11.2 11.2 0 0 0 12 .8Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m9.2 16.6-4.3-4.3L3.5 13.7l5.7 5.7L21 7.6l-1.4-1.4-10.4 10.4Z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m13.2 5.2 6.8 6.8-6.8 6.8-1.4-1.4 4.4-4.4H4v-2h12.2l-4.4-4.4 1.4-1.4Z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8.7 5.3 1.4 1.4L4.8 12l5.3 5.3-1.4 1.4L1.9 12l6.8-6.7Zm6.6 0L22.1 12l-6.8 6.7-1.4-1.4 5.3-5.3-5.3-5.3 1.4-1.4Z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v12h16V6H4Zm2.3 2.3 1.4-1.4L12.4 11l-4.7 4.1-1.4-1.4L9.5 11 6.3 8.3Zm5.7 5.7h5v2h-5v-2Z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path d="M15.5 3a5.5 5.5 0 0 1 1.7 10.7L15 16l-1.5-1.5L12 16l-2-2-2 2-2-2 6.3-6.3A5.5 5.5 0 0 1 15.5 3Zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5Zm0 2.3L7.3 7 12 9.7 16.7 7 12 4.3ZM4.5 11.7 12 15.9l7.5-4.2 1 1.8L12 18.1 3.5 13.5l1-1.8Zm0 4.6L12 20.5l7.5-4.2 1 1.8L12 22.6 3.5 18l1-1.7Z"/></symbol>
+  <symbol id="i-linux" viewBox="0 0 24 24"><path d="M12 2c3 0 4.5 2.5 4.5 5.5 0 1.7.5 3 1.5 4.4 1.4 1.9 2 3.9 1.4 5.2-.3.8-1.1 1.1-2 1-.4 1.1-1.2 1.7-2.2 1.7-.9 0-1.5-.4-2-.9-.4.2-.8.3-1.2.3s-.8-.1-1.2-.3c-.5.5-1.1.9-2 .9-1 0-1.8-.6-2.2-1.7-.9.1-1.7-.2-2-1-.6-1.3 0-3.3 1.4-5.2 1-1.4 1.5-2.7 1.5-4.4C7.5 4.5 9 2 12 2Z"/></symbol>
+  <symbol id="i-windows" viewBox="0 0 24 24"><path d="M3 4.4 10.5 3v8H3V4.4ZM11.5 2.8 21 1v10h-9.5V2.8ZM3 12h7.5v8L3 18.6V12Zm8.5 0H21v10l-9.5-1.8V12Z"/></symbol>
+</svg>
+
+<header class="site-header">
+  <div class="container nav-bar">
+    <a class="brand" href="#overview" data-go="0" aria-label="Janus 首页"><img src="favicon.svg" width="34" height="34" alt="">Janus</a>
+    <nav class="nav-links" aria-label="主导航">
+      <button class="nav-link" type="button" data-go="0" data-range="0" aria-current="page">概览</button>
+      <button class="nav-link" type="button" data-go="1" data-range="1">核心优势</button>
+      <button class="nav-link" type="button" data-go="2" data-range="2">工作原理</button>
+      <button class="nav-link" type="button" data-go="3" data-range="3">托盘</button>
+      <button class="nav-link" type="button" data-go="4" data-range="4">自更新</button>
+      <button class="nav-link" type="button" data-go="5" data-range="5">平台</button>
+      <button class="nav-link" type="button" data-go="6" data-range="6">下载</button>
+    </nav>
+    <div class="nav-actions">
+      <a class="nav-icon github-link" href="https://github.com/mangerle/janus" aria-label="打开 GitHub 仓库"><svg class="icon"><use href="#i-github"/></svg></a>
+      <button class="menu-toggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="mobileMenu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<nav class="mobile-menu" id="mobileMenu" aria-label="移动导航" aria-hidden="true">
+  <button type="button" data-go="0" style="--i:0">概览</button>
+  <button type="button" data-go="1" style="--i:1">核心优势</button>
+  <button type="button" data-go="2" style="--i:2">工作原理</button>
+  <button type="button" data-go="3" style="--i:3">托盘</button>
+  <button type="button" data-go="4" style="--i:4">自更新</button>
+  <button type="button" data-go="5" style="--i:5">平台与发布</button>
+  <button type="button" data-go="6" style="--i:6">下载与常见问题</button>
+</nav>
+
+<main class="deck" id="main" tabindex="-1">
+  <section class="slide hero-slide is-active" id="overview" aria-label="Janus 概览">
+    <div class="slide-inner hero-layout">
+      <div class="hero-copy">
+        <span class="kicker">Rust 原生 UEFI 启动切换</span>
+        <h1 class="heading-1">双系统切换，<span class="gradient-text">一次点击完成</span></h1>
+        <p class="body-lg">写入 UEFI 固件的 BootNext 变量并立即重启，下次开机直达另一侧。Windows ↔ Linux 双向切换，没有 efibootmgr，也没有 bcdedit，只有平台原生 API。</p>
+        <div class="hero-actions">
+          <a class="button button-amber" href="https://github.com/mangerle/janus/releases/latest"><svg class="icon" style="width:18px;height:18px"><use href="#i-download"/></svg>下载最新版本</a>
+          <a class="button button-secondary" href="https://github.com/mangerle/janus"><svg class="icon" style="width:18px;height:18px"><use href="#i-code"/></svg>查看源码</a>
+        </div>
+        <div class="proof-line">
+          <span class="proof-item"><svg class="icon"><use href="#i-check"/></svg>托盘常驻 + CLI</span>
+          <span class="proof-item"><svg class="icon"><use href="#i-check"/></svg>Ed25519 签名自更新</span>
+          <span class="proof-item"><svg class="icon"><use href="#i-check"/></svg>MIT 开源</span>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="app-window" aria-hidden="true">
+          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">GNOME Shell · janus（AppIndicator）</span></div>
+          <div class="app-body">
+            <aside class="tray-pane">
+              <div class="tray-caption">托盘弹出菜单</div>
+              <div class="tray-menu">
+                <div class="menu-info">当前下次启动（BootNext）：未设置</div>
+                <div class="menu-sep"></div>
+                <div class="menu-group">重启并进入…</div>
+                <div class="menu-item"><span class="sw indigo"></span>Boot0001 Windows Boot Manager</div>
+                <div class="menu-item hover"><span class="sw amber"></span>Boot0002 ubuntu</div>
+                <div class="menu-item"><span class="sw dark"></span>Boot0003 UEFI: SanDisk</div>
+                <div class="menu-sep"></div>
+                <div class="menu-item">仅设置下次启动（不重启）<span class="arrow">▸</span></div>
+                <div class="menu-item">清除 BootNext</div>
+                <div class="menu-item">立即重启（不改启动项）</div>
+                <div class="menu-sep"></div>
+                <div class="menu-item">退出</div>
+              </div>
+            </aside>
+            <div class="app-main">
+              <div class="app-tabs"><span class="app-tab active"><i class="tab-dot"></i>janus — 终端</span></div>
+              <div class="terminal-pane">
+                <div class="pane-head"><span>wangle@ubuntu</span><span>efivarfs</span></div>
+                <div class="terminal-line"><span class="prompt">$</span> janus list</div>
+                <div class="terminal-line"><span class="dim">Boot0000  ubuntu                       活跃</span></div>
+                <div class="terminal-line"><span class="dim">Boot2001  EFI USB Device               活跃</span></div>
+                <div class="terminal-line"><span class="dim">Boot0001  Windows Boot Manager         活跃</span></div>
+                <div class="terminal-line"><span class="prompt">$</span> janus reboot --into 1</div>
+                <div class="terminal-line"><span class="info">已设置下次启动：Boot0001（Windows Boot Manager）。</span></div>
+                <div class="terminal-line"><span class="ok">polkit 已授权 · BootNext 写入成功 · 正在重启…</span></div>
+                <div class="terminal-line"><span class="prompt">$</span> <span class="terminal-cursor"></span></div>
+              </div>
+              <div class="app-status"><span>BootNext <b>Boot0001</b></span><span class="status-chips"><span>UEFI</span><span>efivarfs</span><span>已授权</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-strip" aria-label="产品数据">
+        <div class="stat"><strong>≈ 9 MB</strong><span>静态链接单文件，解压即用</span></div>
+        <div class="stat"><strong>Windows ↔ Linux</strong><span>双平台原生 API 直连固件</span></div>
+        <div class="stat"><strong>Ed25519</strong><span>签名清单 + 崩溃自动回滚</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="benefits" aria-label="核心优势" aria-hidden="true">
+    <div class="slide-inner section-layout">
+      <div class="section-heading">
+        <span class="kicker">核心优势</span>
+        <h2 class="heading-2">切换系统，不该在开机时赌手速</h2>
+        <p class="body-md">双系统用户的日常是：重启 → 盯紧屏幕 → 狂按 F8。Janus 把这件事变成托盘里的一次点击——固件层面的 BootNext 机制让下一次启动直接落点在你选的系统上。</p>
+      </div>
+      <div class="benefit-grid">
+        <article class="benefit-card"><div class="benefit-top"><span class="icon-box"><svg class="icon"><use href="#i-switch"/></svg></span><span class="index-pill">01</span></div><h3>一次点击 = 切换 + 重启</h3><p>托盘菜单写入 BootNext 并立即重启；polkit 密码框与确认对话框就是你的反悔按钮，点取消即安全退出。</p><span class="card-caption">固件级下次启动指向</span></article>
+        <article class="benefit-card"><div class="benefit-top"><span class="icon-box gold"><svg class="icon"><use href="#i-bolt"/></svg></span><span class="index-pill">02</span></div><h3>纯原生 API，不借外力</h3><p>Linux 直读 efivarfs，Windows 走固件环境变量 API。每个字节都在 janus-core 里按 EFI_LOAD_OPTION 结构解析，UTF-16LE 描述符 lossy 容错。</p><span class="card-caption">零外部命令依赖</span></article>
+        <article class="benefit-card"><div class="benefit-top"><span class="icon-box gold"><svg class="icon"><use href="#i-flask"/></svg></span><span class="index-pill">03</span></div><h3>dry-run 全覆盖</h3><p>内置 Mock 后端让 CLI 与托盘都可以零固件风险地演示、回归测试、开发调试——演示给别人看也不用担心真的重启。</p><span class="card-caption">--dry-run 模拟模式</span></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="internals" aria-label="工作原理" aria-hidden="true">
+    <div class="slide-inner feature-layout reverse">
+      <div class="media-card">
+        <div class="media-card-inner" aria-hidden="true">
+          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">efivarfs · Boot0002 变量文件</span></div>
+          <div class="board">
+            <div class="board-stack">
+              <div class="board-item"><span class="icon-box"><svg class="icon"><use href="#i-key"/></svg></span><div><h3>特权路径</h3><p>Linux 经 pkexec / sudo 提权写入；Windows 先启用 SeSystemEnvironmentPrivilege 再走 UAC。</p></div></div>
+              <div class="board-item"><span class="icon-box gold"><svg class="icon"><use href="#i-layers"/></svg></span><div><h3>UTF-16LE 描述符</h3><p>BootXXXX 名称藏在 EFI_LOAD_OPTION 二进制结构里，按布局逐字段解析。</p></div></div>
+              <div class="board-item"><span class="icon-box gold"><svg class="icon"><use href="#i-shield"/></svg></span><div><h3>immutable 保护</h3><p>新内核给变量文件加 FS_IMMUTABLE_FL，写入前先经 FS_IOC_SETFLAGS ioctl 清除。</p></div></div>
+            </div>
+            <div class="kv-panel">
+              <div class="kv-title">Boot0002-8be4df61-… 布局</div>
+              <div class="kv-list">
+                <div class="kv-row"><span>属性头</span><code>07 00 00 00</code></div>
+                <div class="kv-row"><span>LoadOption 属性</span><code>ACTIVE (0x1)</code></div>
+                <div class="kv-row"><span>描述编码</span><code>UTF-16LE</code></div>
+                <div class="kv-row"><span>描述内容</span><code>"ubuntu" + 0x0000</code></div>
+                <div class="kv-row"><span>设备路径长度</span><code>u16 LE</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="feature-copy">
+        <span class="kicker">工作原理</span>
+        <h2 class="heading-3">三个经典的坑，都替你踩过了</h2>
+        <p class="body-lg">写 UEFI 变量的门槛不在 API，而在权限、编码与内核保护。janus 把这些全部封装在平台后端 crate 里，对外只暴露统一的 BootManager 接口。</p>
+        <ul class="feature-list">
+          <li><svg class="icon"><use href="#i-check"/></svg><span>BootOrder 决定展示顺序，缺失或损坏的条目自动跳过。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>BIOS/Legacy 机器会在启动时被识别，并给出明确提示。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>efivarfs 仅 root 可读的发行版上，命令自动提权重执行。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>20 个单元测试覆盖解析、编码与 efivarfs 模拟目录的写入路径。</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="tray" aria-label="托盘" aria-hidden="true">
+    <div class="slide-inner feature-layout">
+      <div class="feature-copy">
+        <span class="kicker">托盘常驻</span>
+        <h2 class="heading-3">菜单跟着固件状态走</h2>
+        <p class="body-lg">托盘以普通用户身份运行在你的桌面会话里；每次切换动作经 pkexec 调起特权 helper——polkit 的密码输入框本身就是确认步骤，取消即反悔。</p>
+        <ul class="feature-list">
+          <li><svg class="icon"><use href="#i-check"/></svg><span>每次动作后重建菜单，"当前 BootNext"信息行始终如实反映固件。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>"重启并进入"与"仅设置下次启动"分开，避免误触立即重启。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>Linux 走 ksni 纯 D-Bus 后端，零 GTK / libappindicator 系统库依赖。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>Windows 启动时经 UAC 提权一次，重启前弹 MessageBoxW 确认。</span></li>
+        </ul>
+      </div>
+      <div class="media-card">
+        <div class="media-card-inner" aria-hidden="true">
+          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">janus tray · dry-run</span></div>
+          <div class="board" style="grid-template-columns:1fr">
+            <div class="kv-panel" style="gap:0">
+              <div class="kv-title">托盘菜单（动作后自动重建）</div>
+              <div class="tray-menu" style="margin-top:12px">
+                <div class="menu-info">当前下次启动（BootNext）：Boot0002</div>
+                <div class="menu-sep"></div>
+                <div class="menu-group">重启并进入…</div>
+                <div class="menu-item"><span class="sw indigo"></span>Boot0001 Windows Boot Manager</div>
+                <div class="menu-item hover"><span class="sw amber"></span>Boot0002 ubuntu <span class="menu-check">当前</span></div>
+                <div class="menu-sep"></div>
+                <div class="menu-item">清除 BootNext</div>
+                <div class="menu-item">立即重启（不改启动项）</div>
+                <div class="menu-item">退出</div>
+              </div>
+              <p style="margin:14px 0 0;font-size:11px;color:var(--muted)">点击"重启并进入" → polkit 密码框 → <code style="color:#D6DDEB">pkexec janus _apply 0002 --reboot</code> → 重启。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="update" aria-label="自更新" aria-hidden="true">
+    <div class="slide-inner feature-layout reverse">
+      <div class="media-card">
+        <div class="media-card-inner" aria-hidden="true">
+          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">janus update · 信任链</span></div>
+          <div class="board">
+            <div class="board-stack">
+              <div class="board-item"><span class="icon-box"><svg class="icon"><use href="#i-shield"/></svg></span><div><h3>① 清单验签</h3><p>latest.json 由 Ed25519 签名，公钥内嵌于二进制。</p></div></div>
+              <div class="board-item"><span class="icon-box gold"><svg class="icon"><use href="#i-download"/></svg></span><div><h3>② SHA-256 + 包签名</h3><p>下载包双重校验后才允许进入安装流程。</p></div></div>
+              <div class="board-item"><span class="icon-box gold"><svg class="icon"><use href="#i-refresh"/></svg></span><div><h3>③ 原子替换 + 回滚</h3><p>保留旧版备份，连续 2 次启动失败自动还原。</p></div></div>
+            </div>
+            <div class="kv-panel">
+              <div class="kv-title">latest.json</div>
+              <div class="kv-list">
+                <div class="kv-row"><span>签名算法</span><code>Ed25519</code></div>
+                <div class="kv-row"><span>包校验</span><code>sha256:2952baee…</code></div>
+                <div class="kv-row"><span>目标三元组</span><code>x86_64-pc-windows-msvc</code></div>
+                <div class="kv-row"><span>私钥存放</span><code>GitHub Secrets</code></div>
+                <div class="kv-row"><span>回滚阈值</span><code>连续 2 次启动失败</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="feature-copy">
+        <span class="kicker">自更新</span>
+        <h2 class="heading-3">更新前先验签，坏版本会自己回去</h2>
+        <p class="body-lg">janus update 基于 shipup 构建：从签名清单检查新版本、下载安装包、逐层校验后原子替换二进制。伪造或被篡改的更新在进入安装流程前就会被拒绝。</p>
+        <ul class="feature-list">
+          <li><svg class="icon"><use href="#i-check"/></svg><span>签名私钥只存在于 GitHub Secret 与维护者本机，永不入库。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>发布流水线签名后还会用内嵌公钥做一次复验，双重防呆。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>支持 file:// 本地清单与自定义端点，便于内网镜像与测试。</span></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><span>自更新链路已在本机用签名清单完成端到端实测。</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="platforms" aria-label="平台与发布" aria-hidden="true">
+    <div class="slide-inner section-layout">
+      <div class="section-heading">
+        <span class="kicker">平台与发布</span>
+        <h2 class="heading-2">双平台流水线，签名发布</h2>
+        <p class="body-md">Linux 与 Windows 双端持续构建：push 到 main 触发质量门禁与 Windows 实测，打 v* 标签自动构建、生成分类更新日志、签名清单并发布 GitHub Release。</p>
+      </div>
+      <div class="platform-grid">
+        <article class="platform-card"><div class="platform-head"><h3>Linux</h3><span class="platform-icon"><svg class="icon"><use href="#i-linux"/></svg></span></div><p>主要开发与验证平台。托盘走 ksni 纯 D-Bus，无需任何系统开发库；写固件经 pkexec 提权，tar.gz 归档分发。</p><div class="chips"><span class="chip">ksni / D-Bus</span><span class="chip">tar.gz</span><span class="chip">x86_64</span><span class="chip">零系统依赖</span></div></article>
+        <article class="platform-card"><div class="platform-head"><h3>Windows</h3><span class="platform-icon"><svg class="icon"><use href="#i-windows"/></svg></span></div><p>固件环境变量 API + UAC 提权，托盘用 tao 消息泵与 MessageBoxW 确认。CI 在 windows-latest 上真实编译并跑测试。</p><div class="chips"><span class="chip">UAC runas</span><span class="chip">zip</span><span class="chip">x64</span><span class="chip">tao</span></div></article>
+        <article class="platform-card"><div class="platform-head"><h3>质量门禁</h3><span class="platform-icon"><svg class="icon"><use href="#i-flask"/></svg></span></div><p>Linux 端 fmt / clippy -D warnings / 测试 / MSRV 1.96 / Windows 交叉编译检查；20 个单元测试覆盖核心解析与 efivarfs 路径。</p><div class="chips"><span class="chip">MSRV 1.96</span><span class="chip">clippy 0 警告</span><span class="chip">交叉检查</span></div></article>
+      </div>
+      <div class="platform-note"><span>发布产物由 GitHub Actions 构建，更新清单与安装包使用 Ed25519 签名。</span><div class="chips"><span class="chip">MIT</span><span class="chip">git-cliff 日志</span><span class="chip">崩溃回滚</span><span class="chip">dry-run</span></div></div>
+    </div>
+  </section>
+
+  <section class="slide" id="download" aria-label="下载与常见问题" aria-hidden="true">
+    <div class="slide-inner download-layout">
+      <div class="cta-panel">
+        <span class="kicker">开始使用</span>
+        <h2 class="heading-2">让下一次重启，<span class="gradient-text">落点由你决定</span></h2>
+        <p>从最新 Release 下载单文件解压即用，或用 Cargo 从源码安装。无需注册账号，固件状态与更新凭据都留在你的设备上。</p>
+        <div class="cta-actions"><a class="button button-amber" href="https://github.com/mangerle/janus/releases/latest"><svg class="icon" style="width:19px;height:19px"><use href="#i-download"/></svg>下载 Janus</a><a class="button button-secondary" href="https://github.com/mangerle/janus"><svg class="icon" style="width:19px;height:19px"><use href="#i-github"/></svg>查看源码</a></div>
+        <div class="cta-meta"><span><svg class="icon"><use href="#i-flask"/></svg>--dry-run 零风险体验</span><span><svg class="icon"><use href="#i-check"/></svg>MIT 开源</span></div>
+      </div>
+      <div class="faq-list">
+        <details open><summary>会改动我的默认引导顺序吗？</summary><p>不会。Janus 只写入一次性的 BootNext 变量，BootOrder 保持不动；下一次启动走你选的系统，之后固件自动恢复原有顺序。</p></details>
+        <details><summary>需要 root / 管理员权限吗？</summary><p>写固件变量需要。Linux 上按动作经 pkexec 弹 polkit 密码框（托盘本身以普通用户运行）；Windows 在启动时经 UAC 提权一次，整个会话只弹一次。</p></details>
+        <details><summary>支持 BIOS / Legacy 启动的机器吗？</summary><p>不支持。Janus 启动时会检测 efivarfs（Linux）或固件变量接口（Windows），BIOS/Legacy 环境会得到明确提示。</p></details>
+        <details><summary>自更新如何保证不被劫持？</summary><p>更新清单用项目专属 Ed25519 密钥签名，公钥编译进二进制；下载包再做 SHA-256 与包签名校验。升级后连续两次启动失败会自动回滚到上一版本。</p></details>
+        <details><summary>Linux 托盘图标不显示怎么办？</summary><p>需要桌面环境支持 StatusNotifierItem：Ubuntu（自带 AppIndicator 扩展）与 KDE 默认满足；同时会话中需要有 polkit agent。</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="progress-rail" aria-hidden="true"><i class="progress-bar" id="progressBar"></i></div>
+  <div class="container footer-inner">
+    <span class="footer-brand">Janus · MIT · 纯原生 UEFI 切换</span>
+    <span class="footer-hint">滚轮、方向键或触摸切换介绍</span>
+    <div class="deck-controls">
+      <button class="icon-button prev" id="prevSlide" type="button" aria-label="上一个介绍"><svg class="icon"><use href="#i-arrow"/></svg></button>
+      <span class="slide-counter"><strong id="currentSlide">01</strong> / <span id="totalSlides">07</span></span>
+      <button class="icon-button next" id="nextSlide" type="button" aria-label="下一个介绍"><svg class="icon"><use href="#i-arrow"/></svg></button>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var deck = document.getElementById('main');
+  var progressBar = document.getElementById('progressBar');
+  var currentLabel = document.getElementById('currentSlide');
+  var totalLabel = document.getElementById('totalSlides');
+  var prevButton = document.getElementById('prevSlide');
+  var nextButton = document.getElementById('nextSlide');
+  var navLinks = Array.prototype.slice.call(document.querySelectorAll('.nav-link'));
+  var goButtons = Array.prototype.slice.call(document.querySelectorAll('[data-go]'));
+  var menuButton = document.querySelector('.menu-toggle');
+  var mobileMenu = document.getElementById('mobileMenu');
+  var current = 0;
+  var wheelTotal = 0;
+  var wheelLocked = false;
+  var wheelIdleTimer = 0;
+  var touchStartY = 0;
+  var touchStartX = 0;
+
+  function resetMobileScroll(){
+    if(!window.matchMedia('(max-width: 860px)').matches) return;
+    window.scrollTo(0,0);
+    window.requestAnimationFrame(function(){ window.scrollTo(0,0); });
+  }
+
+  totalLabel.textContent = String(slides.length).padStart(2,'0');
+
+  function activeRangeMatches(range){
+    if(!range) return false;
+    var parts = range.split('-');
+    if(parts.length === 2) return current >= Number(parts[0]) && current <= Number(parts[1]);
+    return Number(range) === current;
+  }
+
+  function updateNavigation(){
+    navLinks.forEach(function(link){
+      if(activeRangeMatches(link.getAttribute('data-range'))) link.setAttribute('aria-current','page');
+      else link.removeAttribute('aria-current');
+    });
+    currentLabel.textContent = String(current + 1).padStart(2,'0');
+    progressBar.style.transform = 'scaleX(' + ((current + 1) / slides.length) + ')';
+    prevButton.disabled = current === 0;
+    nextButton.disabled = current === slides.length - 1;
+  }
+
+  function goTo(index, focusDeck){
+    var target = Math.max(0,Math.min(slides.length - 1,index));
+    if(target === current){
+      if(focusDeck) deck.focus({preventScroll:true});
+      return false;
+    }
+    slides[current].classList.remove('is-active');
+    slides[current].classList.add('is-before');
+    slides[current].setAttribute('aria-hidden','true');
+    slides[current].inert = true;
+    current = target;
+    slides[current].classList.remove('is-before');
+    slides[current].classList.add('is-active');
+    slides[current].setAttribute('aria-hidden','false');
+    slides[current].inert = false;
+    slides[current].scrollTop = 0;
+    resetMobileScroll();
+    updateNavigation();
+    if(window.history && window.history.replaceState){
+      window.history.replaceState(null,'','#' + slides[current].id);
+    }
+    if(focusDeck) deck.focus({preventScroll:true});
+    return true;
+  }
+
+  function closeMenu(){
+    document.body.classList.remove('menu-open');
+    menuButton.setAttribute('aria-expanded','false');
+    menuButton.setAttribute('aria-label','打开导航');
+    mobileMenu.setAttribute('aria-hidden','true');
+  }
+
+  menuButton.addEventListener('click',function(){
+    var open = !document.body.classList.contains('menu-open');
+    document.body.classList.toggle('menu-open',open);
+    menuButton.setAttribute('aria-expanded',String(open));
+    menuButton.setAttribute('aria-label',open ? '关闭导航' : '打开导航');
+    mobileMenu.setAttribute('aria-hidden',String(!open));
+  });
+
+  goButtons.forEach(function(button){
+    button.addEventListener('click',function(event){
+      event.preventDefault();
+      goTo(Number(button.getAttribute('data-go')),true);
+      closeMenu();
+    });
+  });
+
+  prevButton.addEventListener('click',function(){ goTo(current - 1,true); });
+  nextButton.addEventListener('click',function(){ goTo(current + 1,true); });
+
+  function slideCanScroll(direction){
+    if(window.matchMedia('(max-width: 860px)').matches){
+      var root = document.scrollingElement || document.documentElement;
+      var maxScroll = Math.max(0, root.scrollHeight - window.innerHeight);
+      if(direction > 0) return window.scrollY < maxScroll - 2;
+      return window.scrollY > 2;
+    }
+    var slide = slides[current];
+    if(slide.scrollHeight <= slide.clientHeight + 2) return false;
+    if(direction > 0) return slide.scrollTop + slide.clientHeight < slide.scrollHeight - 2;
+    return slide.scrollTop > 2;
+  }
+
+  deck.addEventListener('wheel',function(event){
+    if(wheelLocked){ event.preventDefault(); return; }
+    if(slideCanScroll(event.deltaY)) return;
+    event.preventDefault();
+    wheelTotal += event.deltaY;
+    window.clearTimeout(wheelIdleTimer);
+    wheelIdleTimer = window.setTimeout(function(){ wheelTotal = 0; },160);
+    if(Math.abs(wheelTotal) < 42) return;
+    var direction = wheelTotal > 0 ? 1 : -1;
+    goTo(current + direction,false);
+    wheelTotal = 0;
+    wheelLocked = true;
+    window.setTimeout(function(){ wheelLocked = false; },220);
+  },{passive:false});
+
+  document.addEventListener('keydown',function(event){
+    if(event.key === 'Escape' && document.body.classList.contains('menu-open')){ closeMenu(); return; }
+    if(document.body.classList.contains('menu-open')) return;
+    if(event.target.closest && event.target.closest('a,button,summary,details,input,textarea,select')) return;
+    if(['ArrowDown','PageDown',' '].indexOf(event.key) !== -1){ event.preventDefault(); goTo(current + 1,false); }
+    else if(['ArrowUp','PageUp'].indexOf(event.key) !== -1){ event.preventDefault(); goTo(current - 1,false); }
+    else if(event.key === 'Home'){ event.preventDefault(); goTo(0,false); }
+    else if(event.key === 'End'){ event.preventDefault(); goTo(slides.length - 1,false); }
+  });
+
+  deck.addEventListener('touchstart',function(event){
+    if(event.touches.length !== 1) return;
+    touchStartY = event.touches[0].clientY;
+    touchStartX = event.touches[0].clientX;
+  },{passive:true});
+
+  deck.addEventListener('touchend',function(event){
+    if(event.changedTouches.length !== 1) return;
+    var deltaY = touchStartY - event.changedTouches[0].clientY;
+    var deltaX = touchStartX - event.changedTouches[0].clientX;
+    if(Math.abs(deltaY) < 56 || Math.abs(deltaY) <= Math.abs(deltaX)) return;
+    if(slideCanScroll(deltaY)) return;
+    goTo(current + (deltaY > 0 ? 1 : -1),false);
+  },{passive:true});
+
+  var hashIndex = slides.findIndex(function(slide){ return '#' + slide.id === window.location.hash; });
+  if(hashIndex > 0){
+    slides[0].classList.remove('is-active');
+    slides[0].setAttribute('aria-hidden','true');
+    slides[0].inert = true;
+    current = hashIndex;
+    slides[current].classList.add('is-active');
+    slides[current].setAttribute('aria-hidden','false');
+    slides[current].inert = false;
+  }
+  resetMobileScroll();
+  updateNavigation();
+})();
+</script>
+
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"SoftwareApplication",
+  "name":"Janus",
+  "applicationCategory":"UtilityApplication",
+  "operatingSystem":"Linux, Windows",
+  "description":"基于 Rust 的跨平台 UEFI 启动切换工具：写入 BootNext 并重启，一键进入另一个系统。托盘常驻、CLI 双形态，Ed25519 签名自更新。",
+  "url":"https://mangerle.github.io/janus/",
+  "downloadUrl":"https://github.com/mangerle/janus/releases/latest",
+  "codeRepository":"https://github.com/mangerle/janus",
+  "license":"https://github.com/mangerle/janus/blob/main/LICENSE",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}
+}
+</script>
+</body>
+</html>

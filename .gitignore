@@ -1,0 +1,6 @@
+/target
+**/*.rs.bk
+
+# shipup 签名私钥绝不入库（公钥已内嵌于 crates/janus-updater）
+/keys/
+/.idea/

@@ -1,0 +1,83 @@
+.TH JANUS 1 "2026-11-21" "janus 0.1.0" "User Commands"
+.SH NAME
+janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常驻可选）
+.SH SYNOPSIS
+.B janus
+.I COMMAND
+.RI [ OPTIONS ]
+.SH DESCRIPTION
+.B janus
+写入 UEFI 固件的
+.B BootNext
+变量并（可选）立即重启，使下一次开机直接进入选定的操作系统。
+目标启动项可用
+.B BootXXXX
+编号（十六进制，如
+.IR 1 ", " 0x0002 ", " Boot0002 "）
+或名称子串（不区分大小写）指定。
+.PP
+写固件变量需要特权：Linux 上命令自动经
+.BR pkexec (1)
+（回退
+.BR sudo (8)）
+重执行自身；Windows 经 UAC（runas）提权，整个会话仅弹一次。
+.SH COMMANDS
+.TP
+.B list
+按 BootOrder 顺序列出启动项；\fB--json\fR 输出 JSON。
+.TP
+.BI next " TARGET"
+设置下次启动项（BootNext），重启后生效。
+.TP
+.B clear
+清除 BootNext。
+.TP
+.BI reboot " [--into " TARGET "]"
+立即重启；配合
+.B --into
+先写入 BootNext。
+.TP
+.B tray
+常驻系统托盘（Linux 走 ksni/D-Bus，Windows 需管理员）。
+.TP
+.B update
+自更新：校验 Ed25519 签名清单、下载并原子替换二进制；
+.B --check
+仅检查，
+.B --yes
+跳过确认，
+.B --manifest
+覆盖清单端点。
+.TP
+.B --dry-run
+全局开关：使用内置 Mock 后端，不触碰真实固件。
+.SH ENVIRONMENT
+.TP
+.B JANUS_MANIFEST_URL
+无（清单端点经
+.B --manifest
+指定；默认为 GitHub Releases 最新清单）。
+.SH FILES
+.TP
+.I /sys/firmware/efi/efivars/
+Linux 下的 UEFI 变量文件系统（efivarfs）。
+.SH EXAMPLES
+.TP
+janus next ubuntu
+下次启动进入 ubuntu。
+.TP
+janus reboot --into "Windows Boot Manager"
+写入 BootNext 并立即重启进入 Windows。
+.TP
+janus --dry-run tray
+以模拟模式体验托盘，不触碰固件。
+.SH SEE ALSO
+.BR pkexec (1),
+.BR sudo (8),
+efivarfs(5)
+.PP
+完整文档：https://mangerle.github.io/janus/
+.SH AUTHOR
+wangle <wangle@agree.com.cn>
+.SH LICENSE
+MIT

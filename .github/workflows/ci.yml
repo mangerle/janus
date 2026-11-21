@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Linux 质量门禁。janus 在 Linux 目标为纯 Rust（ksni/zbus 无 -sys 依赖），
+  # 无需安装任何 apt 图形/数据库开发包。
+  quality-linux:
+    name: Linux 质量门禁
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Rust 稳定版与格式/静态检查组件
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 启用 Rust 依赖缓存
+        uses: Swatinem/rust-cache@v2
+
+      - name: 检查代码格式
+        run: cargo fmt --all -- --check
+
+      - name: 运行 Clippy 零警告门禁
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: 运行全工作区测试
+        run: cargo test --locked --workspace
+
+      - name: 编译检查全部目标
+        run: cargo check --locked --workspace --all-targets
+
+      - name: 配置最低支持 Rust 工具链（shipup MSRV 为 1.96）
+        run: rustup toolchain install 1.96.0 --profile minimal
+
+      - name: 验证最低支持 Rust 版本
+        run: cargo +1.96.0 check --locked --workspace --all-targets
+
+      - name: 交叉编译检查 Windows 平台代码
+        # 在 Linux 上验证 windows-rs FFI/UAC/托盘等 windows 分支的编译正确性
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+          cargo check --locked --workspace --target x86_64-pc-windows-gnu
+
+  # Windows 宿主实测：Windows 条件编译的内核（特权启用、固件变量 API）
+  # 必须在真实 Windows 上编译并跑测试，否则平台分支会长期失守。
+  platform-windows:
+    name: Windows 实测与静态检查
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Rust 稳定版与静态检查组件
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 启用 Rust 依赖缓存
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows
+
+      - name: 运行 Clippy 零警告门禁
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: 运行全工作区测试
+        shell: bash
+        run: cargo test --locked --workspace
+
+      - name: 编译检查全部目标
+        run: cargo check --locked --workspace --all-targets

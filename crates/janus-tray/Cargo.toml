@@ -1,0 +1,22 @@
+[package]
+name = "janus-tray"
+description = "Janus 系统托盘：tray-icon + tao 事件循环"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+log = "0.4"
+janus-core = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Linux 使用 ksni（纯 D-Bus StatusNotifierItem）后端，无需 libappindicator/GTK 系统库；
+# ksni 后端自带 D-Bus worker 线程，也不需要 tao 事件循环
+tray-icon = { workspace = true, features = ["ksni"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+tray-icon = { workspace = true, features = ["muda-common-controls-v6"] }
+tao = { workspace = true }
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

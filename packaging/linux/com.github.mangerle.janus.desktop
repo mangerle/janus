@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Janus
+GenericName=UEFI Boot Switcher
+Comment=写入 UEFI BootNext 并重启，一键进入另一个系统
+Comment[en]=Write UEFI BootNext and reboot to switch between installed OSes
+Exec=janus tray
+TryExec=janus
+Icon=com.github.mangerle.janus
+Terminal=false
+Categories=System;Utility;
+Keywords=boot;uefi;reboot;dual-boot;启动;切换;重启;
+StartupNotify=true

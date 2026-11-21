@@ -1,0 +1,6 @@
+janus (0.1.0) unstable; urgency=medium
+
+  * Initial release: BootNext 切换（list/next/clear/reboot）、托盘常驻
+    （ksni/tao）、shipup 签名自更新、--dry-run 模拟模式。
+
+ -- wangle <wangle@agree.com.cn>  Fri, 21 Nov 2026 16:10:00 +0800

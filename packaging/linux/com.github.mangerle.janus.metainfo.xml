@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream 元数据：软件中心（GNOME Software / KDE Discover）据此展示 Janus。
+     id、launchable 与 .desktop 文件、Icon 键逐字一致（com.github.mangerle.janus）。 -->
+<component type="desktop-application">
+  <id>com.github.mangerle.janus</id>
+  <name>Janus</name>
+  <summary>跨平台 UEFI 启动切换工具（Windows ↔ Linux 一键切换）</summary>
+  <project_license>MIT</project_license>
+  <metadata_license>MIT</metadata_license>
+  <developer_name translatable="no">mangerle</developer_name>
+
+  <url type="homepage">https://mangerle.github.io/janus/</url>
+  <url type="bugtracker">https://github.com/mangerle/janus/issues</url>
+  <url type="help">https://github.com/mangerle/janus/blob/main/README_zh-CN.md</url>
+
+  <description>
+    <p>
+      Janus 写入 UEFI 固件的 BootNext 变量并重启，下次开机直接进入选定的系统，
+      免去开机时按启动菜单快捷键。支持 Windows ↔ Linux 双向切换，托盘常驻与
+      CLI 双形态。
+    </p>
+    <p>核心特性：</p>
+    <ul>
+      <li>纯原生 API：Linux 直读 efivarfs（含 FS_IMMUTABLE_FL 处理），Windows 走固件环境变量 API + UAC 提权</li>
+      <li>托盘常驻：ksni 纯 D-Bus 后端，无 GTK / libappindicator 系统库依赖</li>
+      <li>Ed25519 签名自更新：清单验签 + SHA-256 + 包签名，升级后连续崩溃自动回滚</li>
+      <li>--dry-run 模拟模式：零固件风险地演示与测试</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.github.mangerle.janus.desktop</launchable>
+  <provides>
+    <binary>janus</binary>
+  </provides>
+
+  <releases>
+    <release version="0.1.0" date="2026-11-21">
+      <description>
+        <p>首个公开版本：list / next / clear / reboot / tray / update 全套命令，
+        托盘常驻，shipup 签名自更新通道。</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1"/>
+</component>

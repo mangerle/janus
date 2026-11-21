@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96"
+license = "MIT"
+authors = ["wangle"]
+
+[workspace.dependencies]
+janus-core = { path = "crates/janus-core" }
+janus-backend-linux = { path = "crates/janus-backend-linux" }
+janus-backend-windows = { path = "crates/janus-backend-windows" }
+janus-privilege = { path = "crates/janus-privilege" }
+janus-tray = { path = "crates/janus-tray" }
+janus-updater = { path = "crates/janus-updater" }
+
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+thiserror = "2"
+libc = "0.2"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+system_shutdown = "4"
+tempfile = "3"
+windows = "0.62"
+# 自更新引擎：只用阻塞 API + 归档支持 + rustls（避免链接 OpenSSL）
+shipup = { version = "0.5.1", default-features = false }
+# default-features = false：成员按平台选择后端（Linux 用 ksni，避免 libappindicator/GTK 系统库依赖）
+tray-icon = { version = "0.26", default-features = false }
+tao = "0.37"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1

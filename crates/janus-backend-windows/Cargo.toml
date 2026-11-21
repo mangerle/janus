@@ -1,0 +1,22 @@
+[package]
+name = "janus-backend-windows"
+description = "Janus Windows 后端：基于 Win32 固件环境变量 API 的 UEFI 启动项管理"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+janus-core = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# GetFirmwareEnvironmentVariableW/SetFirmwareEnvironmentVariableW 位于
+# Win32::System::WindowsProgramming 命名空间；OpenProcessToken/GetCurrentProcess 位于
+# Win32::System::Threading
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+] }

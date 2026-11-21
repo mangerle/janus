@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Janus mark v2：双徽圆盘。左半 Windows，右半 Linux(Ubuntu 圈友)，
+       中央青铜齿轮承接"固件/引导"，外围两段弧线箭头表达双向切换。 -->
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="#1B2130"/>
+
+  <!-- 外围弧线箭头（实心环带：左侧向上，右侧向下） -->
+  <path d="M29.5 154.4 A102 102 0 0 1 84.9 35.6 L89.1 44.6 A92 92 0 0 0 39.1 151.8 Z" fill="#3E8EF0"/>
+  <path d="M106.6 25.5 L89.5 45.6 L80.3 25.7 Z" fill="#3E8EF0"/>
+  <path d="M226.5 101.6 A102 102 0 0 1 171.1 220.4 L166.9 211.4 A92 92 0 0 0 216.9 104.2 Z" fill="#E8631C"/>
+  <path d="M149.4 230.6 L166.5 210.4 L175.7 230.4 Z" fill="#E8631C"/>
+
+  <!-- 对分圆盘：左 Windows 蓝，右 Ubuntu 橙 -->
+  <path d="M125 50.1 A78 78 0 0 0 125 205.9 Z" fill="#3E8EF0"/>
+  <path d="M131 50.1 A78 78 0 0 1 131 205.9 Z" fill="#E95420"/>
+  <!-- 盘面高光与阴影 -->
+  <path d="M125 50.1 A78 78 0 0 0 60 99 L125 128 Z" fill="#FFFFFF" opacity="0.10"/>
+  <path d="M131 205.9 A78 78 0 0 1 196 157 L131 128 Z" fill="#000000" opacity="0.12"/>
+
+  <!-- 左半：Windows 四格窗 -->
+  <g fill="#FFFFFF" opacity="0.97">
+    <rect x="66.5" y="104.5" width="22" height="22" rx="2.5"/>
+    <rect x="92.5" y="104.5" width="22" height="22" rx="2.5"/>
+    <rect x="66.5" y="130.5" width="22" height="22" rx="2.5"/>
+    <rect x="92.5" y="130.5" width="22" height="22" rx="2.5"/>
+  </g>
+
+  <!-- 右半：Ubuntu 圈友（三段弧 + 三个点） -->
+  <g stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.97">
+    <path d="M173 102 A27 27 0 0 1 192.1 135"/>
+    <path d="M185.1 147.1 A27 27 0 0 1 146.9 147.1"/>
+    <path d="M139.9 135 A27 27 0 0 1 159 102"/>
+  </g>
+  <g fill="#FFFFFF" opacity="0.97">
+    <circle cx="166" cy="101" r="7"/>
+    <circle cx="189.4" cy="141.5" r="7"/>
+    <circle cx="142.6" cy="141.5" r="7"/>
+  </g>
+
+  <!-- 中央青铜齿轮（8 齿 + 中孔） -->
+  <g fill="#C98A3E">
+    <circle cx="128" cy="128" r="25"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(45,128,128)"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(90,128,128)"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(135,128,128)"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(180,128,128)"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(225,128,128)"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(270,128,128)"/>
+    <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(315,128,128)"/>
+  </g>
+  <circle cx="128" cy="128" r="24.5" fill="none" stroke="#E8B877" stroke-opacity="0.35" stroke-width="2"/>
+  <circle cx="128" cy="128" r="10" fill="#1B2130"/>
+  <circle cx="128" cy="128" r="10" fill="none" stroke="#E8B877" stroke-opacity="0.45" stroke-width="2"/>
+</svg>

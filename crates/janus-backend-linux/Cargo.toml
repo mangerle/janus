@@ -1,0 +1,15 @@
+[package]
+name = "janus-backend-linux"
+description = "Janus Linux 后端：基于 efivarfs 的 UEFI 启动项管理"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+janus-core = { workspace = true }
+libc = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

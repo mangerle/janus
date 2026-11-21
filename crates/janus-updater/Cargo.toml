@@ -1,0 +1,20 @@
+[package]
+name = "janus-updater"
+description = "Janus 自更新：基于 shipup 的 Ed25519 签名清单校验、下载安装与崩溃回滚"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+janus-core = { workspace = true }
+shipup = { workspace = true, default-features = false, features = [
+    "blocking",
+    "archive",
+    "rustls",
+] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

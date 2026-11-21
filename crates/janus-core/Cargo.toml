@@ -1,0 +1,15 @@
+[package]
+name = "janus-core"
+description = "Janus 核心库：UEFI 启动项类型、EFI_LOAD_OPTION 解析与 BootManager trait"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
