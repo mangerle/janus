@@ -117,23 +117,21 @@ mod imp {
             payload.extend(attrs.to_le_bytes());
             payload.extend(data);
 
-            if path.exists() {
-                // 内核的防误删保护：先清除 immutable 标志，否则 EPERM
-                clear_immutable(&path);
-                let mut f = OpenOptions::new()
-                    .write(true)
-                    .open(&path)
-                    .map_err(Self::map_io)?;
-                f.write_all(&payload).map_err(Self::map_io)?;
-            } else {
-                // efivarfs 支持通过创建文件来创建新变量
-                let mut f = OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(&path)
-                    .map_err(Self::map_io)?;
-                f.write_all(&payload).map_err(Self::map_io)?;
-            }
+            // 先尝试独占创建，已存在时再清除 immutable 并截断覆盖，消除 exists() 检查的 TOCTOU
+            let mut file = match OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(f) => f,
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                    // 内核的防误删保护：先清除 immutable 标志，否则 EPERM
+                    clear_immutable(&path);
+                    OpenOptions::new()
+                        .write(true)
+                        .truncate(true)
+                        .open(&path)
+                        .map_err(Self::map_io)?
+                }
+                Err(e) => return Err(Self::map_io(e)),
+            };
+            file.write_all(&payload).map_err(Self::map_io)?;
             Ok(())
         }
 
@@ -141,11 +139,12 @@ mod imp {
         fn delete_var(&self, name: &str) -> Result<()> {
             self.check_dir()?;
             let path = self.var_path(name);
-            if !path.exists() {
-                return Ok(());
-            }
             clear_immutable(&path);
-            fs::remove_file(&path).map_err(Self::map_io)
+            match fs::remove_file(&path) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(Self::map_io(e)),
+            }
         }
 
         /// 按 BootOrder 顺序列出启动项；缺失或无法解析的条目静默跳过。
@@ -278,6 +277,16 @@ mod imp {
             let dir = tempfile::tempdir().unwrap();
             let mgr = LinuxBootManager::with_efivars_dir(dir.path());
             mgr.clear_boot_next().unwrap();
+        }
+
+        #[test]
+        fn write_var_truncates_shorter_overwrite() {
+            let dir = tempfile::tempdir().unwrap();
+            let mgr = LinuxBootManager::with_efivars_dir(dir.path());
+            mgr.write_var("TestVar", 0x7, &[1, 2, 3, 4, 5, 6]).unwrap();
+            mgr.write_var("TestVar", 0x7, &[9]).unwrap();
+            let raw = fs::read(dir.path().join(format!("TestVar-{EFI_VARIABLE_GUID}"))).unwrap();
+            assert_eq!(raw, vec![0x07, 0x00, 0x00, 0x00, 9]);
         }
 
         #[test]
