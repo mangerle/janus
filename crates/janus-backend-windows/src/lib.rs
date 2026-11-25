@@ -19,7 +19,7 @@
 mod imp {
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use windows::core::PCWSTR;
+    use windows::core::{w, PCWSTR};
     use windows::Win32::Foundation::{
         CloseHandle, GetLastError, ERROR_ENVVAR_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER,
         ERROR_NOT_ALL_ASSIGNED, HANDLE, LUID,
@@ -35,8 +35,11 @@ mod imp {
 
     use janus_core::{
         collect_boot_entries, encode_boot_next, parse_boot_next_var, to_wide_null, BootEntry,
-        BootId, BootManager, JanusError, Result, EFI_VARIABLE_GUID_BRACED,
+        BootId, BootManager, JanusError, Result,
     };
+
+    /// UEFI 全局变量命名空间 GUID 的编译期 UTF-16 常量，避免每次读写变量重复堆分配。
+    const EFI_VARIABLE_GUID_WIDE: PCWSTR = w!("{8be4df61-93ca-11d2-aa0d-00e098032b8c}");
 
     /// 基于 Win32 固件环境变量 API 的启动管理器。
     #[derive(Debug, Clone, Default)]
@@ -110,7 +113,6 @@ mod imp {
     fn get_var(name: &str) -> Result<Option<Vec<u8>>> {
         enable_firmware_env_privilege()?;
         let name_w = to_wide_null(name);
-        let guid_w = to_wide_null(EFI_VARIABLE_GUID_BRACED);
 
         // 启动项变量通常不到 1KB；缓冲区不足时按 ERROR_INSUFFICIENT_BUFFER 扩容重试
         let mut size: usize = 1024;
@@ -119,7 +121,7 @@ mod imp {
             let n = unsafe {
                 GetFirmwareEnvironmentVariableW(
                     PCWSTR(name_w.as_ptr()),
-                    PCWSTR(guid_w.as_ptr()),
+                    EFI_VARIABLE_GUID_WIDE,
                     Some(buf.as_mut_ptr() as *mut core::ffi::c_void),
                     buf.len() as u32,
                 )
@@ -147,11 +149,10 @@ mod imp {
     fn set_var(name: &str, data: &[u8]) -> Result<()> {
         enable_firmware_env_privilege()?;
         let name_w = to_wide_null(name);
-        let guid_w = to_wide_null(EFI_VARIABLE_GUID_BRACED);
         unsafe {
             SetFirmwareEnvironmentVariableW(
                 PCWSTR(name_w.as_ptr()),
-                PCWSTR(guid_w.as_ptr()),
+                EFI_VARIABLE_GUID_WIDE,
                 Some(data.as_ptr() as *const core::ffi::c_void),
                 data.len() as u32,
             )
