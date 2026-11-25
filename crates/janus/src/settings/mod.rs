@@ -18,6 +18,7 @@ mod widgets;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::Context;
 use eframe::egui;
@@ -25,7 +26,9 @@ use janus_core::{BootEntry, BootManager};
 
 use crate::config::{EntrySettings, Settings};
 use update::UpdaterUi;
-use widgets::{count_pill, panel_frame, primary_button, row_ui, SettingsRow};
+use widgets::{
+    alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, SettingsRow,
+};
 
 /// 托盘图标同时用作窗口图标与标题 Logo（与托盘同源，32x32 RGBA）。
 const ICON_RGBA: &[u8] = include_bytes!("../../../janus-tray/assets/icon-32.rgba");
@@ -111,6 +114,8 @@ struct SettingsApp {
     updater: UpdaterUi,
     /// 标题 Logo 纹理（由托盘图标生成）
     logo: egui::TextureHandle,
+    /// 最近一次复制配置文件路径的时间（用于展示“已复制”反馈）
+    copied_at: Option<Instant>,
 }
 
 impl SettingsApp {
@@ -141,11 +146,12 @@ impl SettingsApp {
             error: init.warning,
             updater: UpdaterUi::new(init.read_only),
             logo,
+            copied_at: None,
         }
     }
 
-    /// 按行状态更新基线设置并原子写盘；成功则关闭窗口，失败则保留窗口展示错误。
-    fn save(&mut self, ctx: &egui::Context) {
+    /// 构造拟保存的配置快照。
+    fn build_settings(&self) -> Settings {
         let mut settings = self.base.clone();
         for row in &self.rows {
             let key = row.id.to_string();
@@ -163,6 +169,17 @@ impl SettingsApp {
                 settings.entries.remove(&key);
             }
         }
+        settings
+    }
+
+    /// 当前界面编辑状态相对初始配置是否有未保存的变更。
+    fn is_dirty(&self) -> bool {
+        self.build_settings() != self.base
+    }
+
+    /// 按行状态更新基线设置并原子写盘；成功则关闭窗口，失败则保留窗口展示错误。
+    fn save(&mut self, ctx: &egui::Context) {
+        let settings = self.build_settings();
         match settings.save(&self.config_path) {
             Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
             Err(e) => self.error = Some(format!("保存设置失败：{e:#}")),
@@ -170,56 +187,64 @@ impl SettingsApp {
     }
 
     /// 标题、启动项分区与“关于与更新”分区。
-    fn content_ui(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(2.0);
+    fn content_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        ui.add_space(4.0);
         let total = self.rows.len();
+        let visible_count = self.rows.iter().filter(|r| r.visible).count();
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.add(egui::Label::new(
                     egui::RichText::new("启动项显示").size(22.0).strong(),
                 ));
                 ui.add(egui::Label::new(
-                    egui::RichText::new("选择会出现在托盘与 CLI 切换列表里的系统。")
-                        .size(12.0)
-                        .weak(),
+                    egui::RichText::new(
+                        "选择会出现在托盘与 CLI 切换列表里的系统，并可自定义别名。",
+                    )
+                    .size(12.0)
+                    .weak(),
                 ));
             });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                count_pill(ui, format!("{total} 个启动项"));
+                count_pill(ui, format!("显示 {visible_count} / {total}"), true);
             });
         });
-        ui.add_space(12.0);
+        ui.add_space(14.0);
 
         if let Some(error) = &self.error {
-            let color = ui.visuals().error_fg_color;
-            ui.colored_label(color, error);
-            ui.add_space(8.0);
+            alert_banner(ui, error);
+            ui.add_space(10.0);
         }
 
         self.list_panel_ui(ui);
-        ui.add_space(12.0);
-        self.about_panel_ui(ui);
+        ui.add_space(14.0);
+        self.about_panel_ui(ui, ctx);
     }
 
-    /// 启动项分区：标题、提示与条目列表。
+    /// 启动项分区：标题、快捷“全部显示”按钮与条目列表。
     fn list_panel_ui(&mut self, ui: &mut egui::Ui) {
+        let has_hidden = self.rows.iter().any(|r| !r.visible);
         panel_frame(ui).show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.add_space(4.0);
             ui.horizontal(|ui| {
                 ui.add(egui::Label::new(
                     egui::RichText::new("启动项").size(13.0).strong(),
                 ));
+                ui.label(
+                    egui::RichText::new("· 隐藏项仍可按编号直接切换")
+                        .size(11.0)
+                        .weak(),
+                );
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(
-                        egui::RichText::new("隐藏项仍可按编号直接切换")
-                            .size(11.0)
-                            .weak(),
-                    );
+                    if has_hidden && ui.add(ghost_button(ui, "全部显示")).clicked() {
+                        for row in &mut self.rows {
+                            row.visible = true;
+                        }
+                    }
                 });
             });
-            ui.add_space(4.0);
+            ui.add_space(6.0);
             ui.separator();
+            ui.add_space(4.0);
 
             if self.rows.is_empty() {
                 ui.add_space(24.0);
@@ -231,26 +256,32 @@ impl SettingsApp {
             }
 
             let available = ui.available_width();
-            let field_width = (available * 0.38).clamp(150.0, 240.0);
-            let name_block_width = (available - 44.0 - 74.0 - field_width - 30.0).max(110.0);
+            let field_width = (available * 0.38).clamp(160.0, 250.0);
+            let name_block_width = (available - 44.0 - 74.0 - field_width - 48.0).max(110.0);
             for (index, row) in self.rows.iter_mut().enumerate() {
                 if index > 0 {
-                    ui.separator();
+                    ui.add_space(2.0);
                 }
                 row_ui(ui, row, name_block_width, field_width);
             }
         });
     }
 
-    /// 关于分区：版本与更新、配置文件。
-    fn about_panel_ui(&mut self, ui: &mut egui::Ui) {
+    /// 关于分区：版本与更新、配置文件（支持一键复制路径）。
+    fn about_panel_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let copied_recently = self
+            .copied_at
+            .is_some_and(|t| t.elapsed() < Duration::from_secs(2));
+        if copied_recently {
+            ctx.request_repaint_after(Duration::from_millis(200));
+        }
+
         panel_frame(ui).show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.add_space(4.0);
             self.updater.about_ui(ui);
-            ui.add_space(4.0);
+            ui.add_space(8.0);
             ui.separator();
-            ui.add_space(4.0);
+            ui.add_space(8.0);
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     ui.add(egui::Label::new(
@@ -267,58 +298,98 @@ impl SettingsApp {
                     );
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let note = if self.read_only {
-                        "dry-run · 不写配置"
+                    let copy_label = if copied_recently {
+                        "已复制"
                     } else {
-                        "跟随系统主题"
+                        "复制路径"
                     };
-                    ui.label(egui::RichText::new(note).size(11.0).weak());
+                    if ui.add(ghost_button(ui, copy_label)).clicked() {
+                        ctx.copy_text(self.config_path.display().to_string());
+                        self.copied_at = Some(Instant::now());
+                    }
+                    if self.read_only {
+                        ui.label(egui::RichText::new("dry-run · 只读").size(11.0).weak());
+                    }
                 });
             });
-            ui.add_space(4.0);
         });
     }
 
-    /// 底部固定操作栏：提示、取消与保存。
-    fn footer_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        egui::Panel::bottom("settings_footer")
+    /// 底部固定操作栏：状态提示、取消与保存（支持 Ctrl+S 保存与 Esc 取消）。
+    fn footer_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, dirty: bool) {
+        let border = ui.visuals().widgets.noninteractive.bg_stroke;
+        let response = egui::Panel::bottom("settings_footer")
             .resizable(false)
+            .frame(
+                egui::Frame::new()
+                    .fill(ui.visuals().panel_fill)
+                    .inner_margin(egui::Margin::symmetric(18, 10)),
+            )
             .show(ui, |ui| {
-                ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     let hint = if self.read_only {
                         "dry-run 预览：修改不会写入设置，也不执行更新"
+                    } else if dirty {
+                        "有未保存的更改（Ctrl+S 保存 · Esc 取消）"
                     } else {
                         "修改仅影响本机显示，不写固件"
                     };
-                    let hint_width = (ui.available_width() - 220.0).max(120.0);
+                    let hint_width = (ui.available_width() - 200.0).max(120.0);
                     ui.add_sized(
                         [hint_width, 20.0],
                         egui::Label::new(egui::RichText::new(hint).size(11.0).weak()).truncate(),
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let save_button = primary_button(ui, "保存更改");
-                        let save = ui.add_enabled(!self.read_only, save_button);
+                        let save = ui.add_enabled(!self.read_only && dirty, save_button);
                         if save.clicked() {
                             self.save(ctx);
                         }
-                        if ui.button(egui::RichText::new("取消").size(12.0)).clicked() {
+                        if ui
+                            .add(
+                                egui::Button::new(egui::RichText::new("取消").size(12.0))
+                                    .corner_radius(7),
+                            )
+                            .clicked()
+                        {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
                     });
                 });
-                ui.add_space(8.0);
-            });
+            })
+            .response;
+        let rect = response.rect;
+        ui.painter().line_segment(
+            [
+                egui::pos2(rect.left() + 1.0, rect.top()),
+                egui::pos2(rect.right() - 1.0, rect.top()),
+            ],
+            border,
+        );
     }
 }
 
 impl eframe::App for SettingsApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        let dirty = self.is_dirty();
+
+        // 键盘快捷键：Ctrl+S / Cmd+S 保存，Esc 取消关闭
+        if !self.read_only
+            && dirty
+            && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::S))
+        {
+            self.save(&ctx);
+        } else if !ctx.egui_wants_keyboard_input()
+            && ctx.input(|i| i.key_pressed(egui::Key::Escape))
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+
         let window_rect = ui.max_rect();
         // 面板顺序：顶部标题栏、底部操作栏固定，中央内容独立滚动
-        chrome::titlebar_ui(ui, &ctx, &self.logo);
-        self.footer_ui(ui, &ctx);
+        chrome::titlebar_ui(ui, &ctx, &self.logo, dirty);
+        self.footer_ui(ui, &ctx, dirty);
         let panel_fill = ui.visuals().panel_fill;
         egui::CentralPanel::default()
             .frame(
@@ -330,7 +401,7 @@ impl eframe::App for SettingsApp {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        self.content_ui(ui);
+                        self.content_ui(ui, &ctx);
                     });
             });
         let maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));

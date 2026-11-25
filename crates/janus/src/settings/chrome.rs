@@ -8,15 +8,20 @@
 
 use eframe::egui;
 
-/// 自绘标题栏：品牌标识、窗口拖动与最小化/最大化/关闭。
-pub(crate) fn titlebar_ui(ui: &mut egui::Ui, ctx: &egui::Context, logo: &egui::TextureHandle) {
+/// 自绘标题栏：品牌标识、未保存指示、窗口拖动与最小化/最大化/关闭。
+pub(crate) fn titlebar_ui(
+    ui: &mut egui::Ui,
+    ctx: &egui::Context,
+    logo: &egui::TextureHandle,
+    dirty: bool,
+) {
     let maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
-    egui::Panel::top("janus_titlebar")
+    let response = egui::Panel::top("janus_titlebar")
         .resizable(false)
         .frame(
             egui::Frame::new()
                 .fill(ui.visuals().panel_fill)
-                .inner_margin(egui::Margin::symmetric(10, 6)),
+                .inner_margin(egui::Margin::symmetric(14, 8)),
         )
         .show(ui, |ui| {
             // 整条空白区域可拖动窗口；后添加的按钮在交互优先级上高于背景
@@ -39,6 +44,15 @@ pub(crate) fn titlebar_ui(ui: &mut egui::Ui, ctx: &egui::Context, logo: &egui::T
                 )));
                 ui.add(egui::Label::new(egui::RichText::new("Janus").strong()));
                 ui.add(egui::Label::new(egui::RichText::new("设置").weak()));
+                if dirty {
+                    let accent = ui.visuals().selection.bg_fill;
+                    let (dot_rect, _) =
+                        ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
+                    ui.painter().circle_filled(dot_rect.center(), 3.5, accent);
+                    ui.add(egui::Label::new(
+                        egui::RichText::new("未保存").size(11.0).color(accent),
+                    ));
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if window_control(ui, WindowControl::Close).clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -56,7 +70,18 @@ pub(crate) fn titlebar_ui(ui: &mut egui::Ui, ctx: &egui::Context, logo: &egui::T
                     }
                 });
             });
-        });
+        })
+        .response;
+    // 标题栏底部分隔线，强化层次
+    let border = ui.visuals().widgets.noninteractive.bg_stroke;
+    let rect = response.rect;
+    ui.painter().line_segment(
+        [
+            egui::pos2(rect.left() + 1.0, rect.bottom()),
+            egui::pos2(rect.right() - 1.0, rect.bottom()),
+        ],
+        border,
+    );
 }
 
 /// 自绘标题栏的窗口控制按钮。

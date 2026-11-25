@@ -15,6 +15,8 @@ use std::time::Duration;
 use eframe::egui;
 use janus_updater::{UpdateEvent, UpdateInfo};
 
+use super::widgets::{ghost_button, primary_button};
+
 /// 当前应用版本（编译期注入）。
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -113,12 +115,7 @@ impl UpdaterUi {
                         }
                     }
                     AboutAction::Install => {
-                        let accent = ui.visuals().selection.bg_fill;
-                        let ink = ui.visuals().selection.stroke.color;
-                        let button = egui::Button::new(
-                            egui::RichText::new("下载并安装").size(12.0).color(ink),
-                        )
-                        .fill(accent);
+                        let button = primary_button(ui, "下载并安装");
                         if ui.add(button).clicked() {
                             install = true;
                         }
@@ -410,18 +407,6 @@ fn forward_event(tx: &SyncSender<UpdateMessage>, event: UpdateEvent) {
         _ => return,
     };
     let _ = tx.try_send(message);
-}
-
-/// 次要操作用幽灵按钮：透明底、强调色文字、细边框。
-fn ghost_button(ui: &egui::Ui, text: &str) -> egui::Button<'static> {
-    let accent = ui.visuals().selection.bg_fill;
-    egui::Button::new(
-        egui::RichText::new(text.to_owned())
-            .size(12.0)
-            .color(accent),
-    )
-    .fill(egui::Color32::TRANSPARENT)
-    .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
 }
 
 /// 失败信息补充可操作提示：权限问题给出提权方式，清单 404 说明发布侧缺失。
