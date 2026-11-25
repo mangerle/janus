@@ -95,24 +95,37 @@ mod win {
         wide
     }
 
+    /// Win32 HANDLE 的 RAII 守卫：确保提前返回或异常展开时自动释放内核句柄。
+    struct OwnedHandle(HANDLE);
+
+    impl Drop for OwnedHandle {
+        fn drop(&mut self) {
+            if !self.0.is_invalid() {
+                unsafe {
+                    let _ = CloseHandle(self.0);
+                }
+            }
+        }
+    }
+
     /// 检查当前进程令牌是否已提权（UAC 高完整性级别）。
     pub(super) fn is_elevated() -> bool {
         unsafe {
-            let mut token = HANDLE::default();
-            if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
+            let mut raw_token = HANDLE::default();
+            if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut raw_token).is_err() {
                 return false;
             }
+            let token = OwnedHandle(raw_token);
             let mut elevation = TOKEN_ELEVATION::default();
             let mut ret = 0u32;
             let ok = GetTokenInformation(
-                token,
+                token.0,
                 TokenElevation,
                 Some(&mut elevation as *mut TOKEN_ELEVATION as *mut core::ffi::c_void),
                 size_of::<TOKEN_ELEVATION>() as u32,
                 &mut ret,
             )
             .is_ok();
-            let _ = CloseHandle(token);
             ok && elevation.TokenIsElevated != 0
         }
     }
@@ -151,13 +164,12 @@ mod win {
             if sei.hProcess.is_invalid() {
                 return Ok(0);
             }
-            if WaitForSingleObject(sei.hProcess, INFINITE) == WAIT_OBJECT_0 {
+            let process = OwnedHandle(sei.hProcess);
+            if WaitForSingleObject(process.0, INFINITE) == WAIT_OBJECT_0 {
                 let mut code = 0u32;
-                let _ = GetExitCodeProcess(sei.hProcess, &mut code);
-                let _ = CloseHandle(sei.hProcess);
+                let _ = GetExitCodeProcess(process.0, &mut code);
                 return Ok(code as i32);
             }
-            let _ = CloseHandle(sei.hProcess);
         }
         Ok(0)
     }

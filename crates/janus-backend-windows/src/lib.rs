@@ -56,16 +56,30 @@ mod imp {
         }
     }
 
+    /// Win32 HANDLE 的 RAII 守卫：确保任何错误提前返回路径都释放内核句柄。
+    struct OwnedHandle(HANDLE);
+
+    impl Drop for OwnedHandle {
+        fn drop(&mut self) {
+            if !self.0.is_invalid() {
+                unsafe {
+                    let _ = CloseHandle(self.0);
+                }
+            }
+        }
+    }
+
     /// 启用 `SeSystemEnvironmentPrivilege` 特权（读写固件变量必需）。
     fn enable_firmware_env_privilege() -> Result<()> {
         unsafe {
-            let mut token = HANDLE::default();
+            let mut raw_token = HANDLE::default();
             OpenProcessToken(
                 GetCurrentProcess(),
                 TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES,
-                &mut token,
+                &mut raw_token,
             )
             .map_err(|e| JanusError::Elevation(format!("OpenProcessToken 失败：{e}")))?;
+            let token = OwnedHandle(raw_token);
 
             let mut luid = LUID::default();
             LookupPrivilegeValueW(PCWSTR::null(), SE_SYSTEM_ENVIRONMENT_NAME, &mut luid)
@@ -78,17 +92,15 @@ mod imp {
                     Attributes: SE_PRIVILEGE_ENABLED,
                 }],
             };
-            AdjustTokenPrivileges(token, false, Some(&tp), 0, None, None)
+            AdjustTokenPrivileges(token.0, false, Some(&tp), 0, None, None)
                 .map_err(|e| JanusError::Elevation(format!("AdjustTokenPrivileges 失败：{e}")))?;
 
             // AdjustTokenPrivileges 即便返回成功，也可能未实际授予全部特权
             if GetLastError() == ERROR_NOT_ALL_ASSIGNED {
-                let _ = CloseHandle(token);
                 return Err(JanusError::Elevation(
                     "当前用户没有 SeSystemEnvironmentPrivilege 特权（请以管理员身份运行）".into(),
                 ));
             }
-            let _ = CloseHandle(token);
         }
         Ok(())
     }
