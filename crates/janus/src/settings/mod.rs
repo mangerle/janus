@@ -74,16 +74,27 @@ pub(crate) fn run_settings_window(
             cc.egui_ctx.set_theme(theme::system_theme_preference());
             theme::apply_theme(&cc.egui_ctx);
             Ok(Box::new(SettingsApp::new(
-                entries,
-                &settings,
-                config_path,
-                read_only,
-                warning,
+                SettingsInit {
+                    entries,
+                    settings: &settings,
+                    config_path,
+                    read_only,
+                    warning,
+                },
                 &cc.egui_ctx,
             )))
         }),
     )
     .map_err(|e| anyhow::anyhow!("设置窗口启动失败：{e}"))
+}
+
+/// 构造 [`SettingsApp`] 的初始化参数，避免多参数平铺。
+struct SettingsInit<'a> {
+    entries: Vec<BootEntry>,
+    settings: &'a Settings,
+    config_path: PathBuf,
+    read_only: bool,
+    warning: Option<String>,
 }
 
 /// 设置窗口应用状态。
@@ -103,18 +114,12 @@ struct SettingsApp {
 }
 
 impl SettingsApp {
-    fn new(
-        entries: Vec<BootEntry>,
-        settings: &Settings,
-        config_path: PathBuf,
-        read_only: bool,
-        warning: Option<String>,
-        ctx: &egui::Context,
-    ) -> Self {
-        let rows = entries
+    fn new(init: SettingsInit<'_>, ctx: &egui::Context) -> Self {
+        let rows = init
+            .entries
             .into_iter()
             .map(|entry| {
-                let configured = settings.entry(entry.id);
+                let configured = init.settings.entry(entry.id);
                 SettingsRow {
                     id: entry.id,
                     firmware_name: entry.name,
@@ -130,11 +135,11 @@ impl SettingsApp {
         );
         Self {
             rows,
-            base: settings.clone(),
-            config_path,
-            read_only,
-            error: warning,
-            updater: UpdaterUi::new(read_only),
+            base: init.settings.clone(),
+            config_path: init.config_path,
+            read_only: init.read_only,
+            error: init.warning,
+            updater: UpdaterUi::new(init.read_only),
             logo,
         }
     }

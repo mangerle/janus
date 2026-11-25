@@ -90,9 +90,17 @@ fn window_control(ui: &mut egui::Ui, kind: WindowControl) -> egui::Response {
     } else {
         ui.visuals().widgets.inactive.fg_stroke.color
     };
+    draw_window_control_icon(ui.painter(), rect.center(), kind, color);
+    response
+}
+
+fn draw_window_control_icon(
+    painter: &egui::Painter,
+    center: egui::Pos2,
+    kind: WindowControl,
+    color: egui::Color32,
+) {
     let stroke = egui::Stroke::new(1.2, color);
-    let center = rect.center();
-    let painter = ui.painter();
     match kind {
         WindowControl::Minimize => {
             painter.line_segment(
@@ -146,7 +154,6 @@ fn window_control(ui: &mut egui::Ui, kind: WindowControl) -> egui::Response {
             );
         }
     }
-    response
 }
 
 /// 无边框窗口的边缘/四角拉伸热区；四角后添加以优先于边缘。
@@ -159,10 +166,26 @@ pub(crate) fn resize_edges(
     if maximized {
         return;
     }
+    for (index, (region, direction, cursor)) in resize_regions(rect).into_iter().enumerate() {
+        let response = ui.interact(
+            region,
+            egui::Id::unique(("janus-window-resize", index)),
+            egui::Sense::drag(),
+        );
+        if response.hovered() {
+            ctx.set_cursor_icon(cursor);
+        }
+        if response.drag_started() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::BeginResize(direction));
+        }
+    }
+}
+
+fn resize_regions(rect: egui::Rect) -> [(egui::Rect, egui::ResizeDirection, egui::CursorIcon); 8] {
     const EDGE: f32 = 6.0;
     const CORNER: f32 = 12.0;
     let (left, right, top, bottom) = (rect.left(), rect.right(), rect.top(), rect.bottom());
-    let regions = [
+    [
         (
             egui::Rect::from_min_max(
                 egui::pos2(left + CORNER, top),
@@ -227,18 +250,5 @@ pub(crate) fn resize_edges(
             egui::ResizeDirection::SouthEast,
             egui::CursorIcon::ResizeNwSe,
         ),
-    ];
-    for (index, (region, direction, cursor)) in regions.iter().enumerate() {
-        let response = ui.interact(
-            *region,
-            egui::Id::unique(("janus-window-resize", index)),
-            egui::Sense::drag(),
-        );
-        if response.hovered() {
-            ctx.set_cursor_icon(*cursor);
-        }
-        if response.drag_started() {
-            ctx.send_viewport_cmd(egui::ViewportCommand::BeginResize(*direction));
-        }
-    }
+    ]
 }

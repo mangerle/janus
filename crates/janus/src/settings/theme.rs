@@ -35,111 +35,133 @@ pub(crate) fn system_theme_preference() -> egui::ThemePreference {
     egui::ThemePreference::System
 }
 
+/// 单套明暗主题的调色板，用于统一驱动 `egui::Visuals` 配置。
+struct ThemePalette {
+    accent: egui::Color32,
+    panel_fill: egui::Color32,
+    faint_bg: egui::Color32,
+    extreme_bg: egui::Color32,
+    line: egui::Color32,
+    fg: egui::Color32,
+    inactive_bg: egui::Color32,
+    hovered_bg: egui::Color32,
+    active_bg: egui::Color32,
+    selection_fg: egui::Color32,
+}
+
+const DARK_PALETTE: ThemePalette = ThemePalette {
+    accent: egui::Color32::from_rgb(0x7C, 0x8C, 0xFF),
+    panel_fill: egui::Color32::from_rgb(0x0B, 0x0F, 0x16),
+    faint_bg: egui::Color32::from_rgb(0x12, 0x1A, 0x26),
+    extreme_bg: egui::Color32::from_rgb(0x0F, 0x16, 0x21),
+    line: egui::Color32::from_rgb(0x23, 0x30, 0x47),
+    fg: egui::Color32::from_rgb(0xEA, 0xF0, 0xF8),
+    inactive_bg: egui::Color32::from_rgb(0x1B, 0x26, 0x38),
+    hovered_bg: egui::Color32::from_rgb(0x23, 0x2F, 0x45),
+    active_bg: egui::Color32::from_rgb(0x2B, 0x3A, 0x57),
+    // 深色里强调色偏亮，按钮文字用深墨色保证对比度
+    selection_fg: egui::Color32::from_rgb(0x0B, 0x10, 0x30),
+};
+
+const LIGHT_PALETTE: ThemePalette = ThemePalette {
+    accent: egui::Color32::from_rgb(0x4F, 0x5D, 0xFF),
+    panel_fill: egui::Color32::WHITE,
+    faint_bg: egui::Color32::WHITE,
+    extreme_bg: egui::Color32::from_rgb(0xF7, 0xF9, 0xFC),
+    line: egui::Color32::from_rgb(0xE7, 0xEB, 0xF2),
+    fg: egui::Color32::from_rgb(0x10, 0x18, 0x28),
+    inactive_bg: egui::Color32::from_rgb(0xF1, 0xF4, 0xFA),
+    hovered_bg: egui::Color32::from_rgb(0xF7, 0xF9, 0xFC),
+    active_bg: egui::Color32::from_rgb(0xE9, 0xED, 0xF9),
+    selection_fg: egui::Color32::WHITE,
+};
+
+const ACCENT_STRONG: egui::Color32 = egui::Color32::from_rgb(0x8B, 0x97, 0xF2);
+
 /// 应用品牌配色、圆角与字号；浅色/深色两套 Style 同步处理。
 pub(crate) fn apply_theme(ctx: &egui::Context) {
     ctx.all_styles_mut(|style| {
-        let dark = style.visuals.dark_mode;
-        let accent = if dark {
-            egui::Color32::from_rgb(0x7C, 0x8C, 0xFF)
+        let palette = if style.visuals.dark_mode {
+            &DARK_PALETTE
         } else {
-            egui::Color32::from_rgb(0x4F, 0x5D, 0xFF)
+            &LIGHT_PALETTE
         };
-        let accent_strong = egui::Color32::from_rgb(0x8B, 0x97, 0xF2);
-
-        let visuals = &mut style.visuals;
-        if dark {
-            visuals.panel_fill = egui::Color32::from_rgb(0x0B, 0x0F, 0x16);
-            visuals.window_fill = egui::Color32::from_rgb(0x0B, 0x0F, 0x16);
-            visuals.faint_bg_color = egui::Color32::from_rgb(0x12, 0x1A, 0x26);
-            visuals.extreme_bg_color = egui::Color32::from_rgb(0x0F, 0x16, 0x21);
-            let line = egui::Color32::from_rgb(0x23, 0x30, 0x47);
-            visuals.window_stroke = egui::Stroke::new(1.0, line);
-            for widget in [
-                &mut visuals.widgets.noninteractive,
-                &mut visuals.widgets.inactive,
-                &mut visuals.widgets.hovered,
-                &mut visuals.widgets.active,
-                &mut visuals.widgets.open,
-            ] {
-                widget.corner_radius = egui::CornerRadius::same(8);
-            }
-            visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, line);
-            visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, line);
-            visuals.widgets.noninteractive.fg_stroke.color =
-                egui::Color32::from_rgb(0xEA, 0xF0, 0xF8);
-            visuals.widgets.inactive.fg_stroke.color = egui::Color32::from_rgb(0xEA, 0xF0, 0xF8);
-            visuals.widgets.hovered.fg_stroke.color = egui::Color32::from_rgb(0xEA, 0xF0, 0xF8);
-            visuals.widgets.active.fg_stroke.color = egui::Color32::from_rgb(0xEA, 0xF0, 0xF8);
-            visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(0x1B, 0x26, 0x38);
-            visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(0x1B, 0x26, 0x38);
-            visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(0x23, 0x2F, 0x45);
-            visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, accent);
-            visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(0x2B, 0x3A, 0x57);
-            visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, accent);
-            // 深色里强调色偏亮，按钮文字用深墨色保证对比度
-            visuals.selection.stroke =
-                egui::Stroke::new(1.0, egui::Color32::from_rgb(0x0B, 0x10, 0x30));
-        } else {
-            visuals.panel_fill = egui::Color32::WHITE;
-            visuals.window_fill = egui::Color32::WHITE;
-            visuals.faint_bg_color = egui::Color32::WHITE;
-            visuals.extreme_bg_color = egui::Color32::from_rgb(0xF7, 0xF9, 0xFC);
-            let line = egui::Color32::from_rgb(0xE7, 0xEB, 0xF2);
-            visuals.window_stroke = egui::Stroke::new(1.0, line);
-            for widget in [
-                &mut visuals.widgets.noninteractive,
-                &mut visuals.widgets.inactive,
-                &mut visuals.widgets.hovered,
-                &mut visuals.widgets.active,
-                &mut visuals.widgets.open,
-            ] {
-                widget.corner_radius = egui::CornerRadius::same(8);
-            }
-            visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, line);
-            visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, line);
-            visuals.widgets.noninteractive.fg_stroke.color =
-                egui::Color32::from_rgb(0x10, 0x18, 0x28);
-            visuals.widgets.inactive.fg_stroke.color = egui::Color32::from_rgb(0x10, 0x18, 0x28);
-            visuals.widgets.hovered.fg_stroke.color = egui::Color32::from_rgb(0x10, 0x18, 0x28);
-            visuals.widgets.active.fg_stroke.color = egui::Color32::from_rgb(0x10, 0x18, 0x28);
-            visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(0xF1, 0xF4, 0xFA);
-            visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(0xF1, 0xF4, 0xFA);
-            visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(0xF7, 0xF9, 0xFC);
-            visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, accent);
-            visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(0xE9, 0xED, 0xF9);
-            visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, accent);
-            visuals.selection.stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
-        }
-
-        visuals.selection.bg_fill = accent;
-        visuals.hyperlink_color = accent_strong;
-        visuals.window_corner_radius = egui::CornerRadius::same(12);
-
-        style.spacing.item_spacing = egui::vec2(10.0, 8.0);
-        style.spacing.button_padding = egui::vec2(14.0, 6.0);
-        style.spacing.interact_size = egui::vec2(24.0, 30.0);
-        style.spacing.window_margin = egui::Margin::same(16);
-        style.text_styles.insert(
-            egui::TextStyle::Heading,
-            egui::FontId::new(22.0, egui::FontFamily::Proportional),
-        );
-        style.text_styles.insert(
-            egui::TextStyle::Body,
-            egui::FontId::new(13.0, egui::FontFamily::Proportional),
-        );
-        style.text_styles.insert(
-            egui::TextStyle::Button,
-            egui::FontId::new(12.0, egui::FontFamily::Proportional),
-        );
-        style.text_styles.insert(
-            egui::TextStyle::Small,
-            egui::FontId::new(12.0, egui::FontFamily::Proportional),
-        );
-        style.text_styles.insert(
-            egui::TextStyle::Monospace,
-            egui::FontId::new(12.0, egui::FontFamily::Monospace),
-        );
+        apply_palette(&mut style.visuals, palette);
+        apply_spacing_and_fonts(style);
     });
+}
+
+fn apply_palette(visuals: &mut egui::Visuals, p: &ThemePalette) {
+    visuals.panel_fill = p.panel_fill;
+    visuals.window_fill = p.panel_fill;
+    visuals.faint_bg_color = p.faint_bg;
+    visuals.extreme_bg_color = p.extreme_bg;
+    visuals.window_stroke = egui::Stroke::new(1.0, p.line);
+    visuals.window_corner_radius = egui::CornerRadius::same(12);
+    visuals.selection.bg_fill = p.accent;
+    visuals.selection.stroke = egui::Stroke::new(1.0, p.selection_fg);
+    visuals.hyperlink_color = ACCENT_STRONG;
+
+    for widget in [
+        &mut visuals.widgets.noninteractive,
+        &mut visuals.widgets.inactive,
+        &mut visuals.widgets.hovered,
+        &mut visuals.widgets.active,
+        &mut visuals.widgets.open,
+    ] {
+        widget.corner_radius = egui::CornerRadius::same(8);
+    }
+    for widget in [
+        &mut visuals.widgets.noninteractive,
+        &mut visuals.widgets.inactive,
+        &mut visuals.widgets.hovered,
+        &mut visuals.widgets.active,
+    ] {
+        widget.fg_stroke.color = p.fg;
+    }
+
+    let line_stroke = egui::Stroke::new(1.0, p.line);
+    let accent_stroke = egui::Stroke::new(1.0, p.accent);
+    visuals.widgets.noninteractive.bg_stroke = line_stroke;
+    visuals.widgets.inactive.bg_stroke = line_stroke;
+    visuals.widgets.inactive.weak_bg_fill = p.inactive_bg;
+    visuals.widgets.inactive.bg_fill = p.inactive_bg;
+    visuals.widgets.hovered.weak_bg_fill = p.hovered_bg;
+    visuals.widgets.hovered.bg_stroke = accent_stroke;
+    visuals.widgets.active.weak_bg_fill = p.active_bg;
+    visuals.widgets.active.bg_stroke = accent_stroke;
+}
+
+fn apply_spacing_and_fonts(style: &mut egui::Style) {
+    style.spacing.item_spacing = egui::vec2(10.0, 8.0);
+    style.spacing.button_padding = egui::vec2(14.0, 6.0);
+    style.spacing.interact_size = egui::vec2(24.0, 30.0);
+    style.spacing.window_margin = egui::Margin::same(16);
+
+    let styles = [
+        (
+            egui::TextStyle::Heading,
+            22.0,
+            egui::FontFamily::Proportional,
+        ),
+        (egui::TextStyle::Body, 13.0, egui::FontFamily::Proportional),
+        (
+            egui::TextStyle::Button,
+            12.0,
+            egui::FontFamily::Proportional,
+        ),
+        (egui::TextStyle::Small, 12.0, egui::FontFamily::Proportional),
+        (
+            egui::TextStyle::Monospace,
+            12.0,
+            egui::FontFamily::Monospace,
+        ),
+    ];
+    for (kind, size, family) in styles {
+        style
+            .text_styles
+            .insert(kind, egui::FontId::new(size, family));
+    }
 }
 
 /// Linux 系统明暗探测；仅作为设置窗口启动时的一次性判断。
