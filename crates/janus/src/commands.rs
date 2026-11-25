@@ -118,7 +118,9 @@ fn resolve_with_settings(
                 settings.apply_names(std::slice::from_mut(&mut matched));
                 return Ok(matched);
             }
-            resolve_target(entries, &parsed).cloned()
+            let mut matched = resolve_target(entries, &parsed)?.clone();
+            settings.apply_names(std::slice::from_mut(&mut matched));
+            Ok(matched)
         }
     }
 }
@@ -285,5 +287,53 @@ fn is_denied(e: &JanusError) -> bool {
         JanusError::PermissionDenied => true,
         JanusError::Io(io) => io.kind() == std::io::ErrorKind::PermissionDenied,
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_with_settings;
+    use crate::config::{EntrySettings, Settings};
+    use janus_core::{BootEntry, BootId};
+
+    fn sample_entries() -> Vec<BootEntry> {
+        vec![
+            BootEntry {
+                id: BootId::new(0x0001),
+                name: "Windows Boot Manager".into(),
+                active: true,
+            },
+            BootEntry {
+                id: BootId::new(0x0002),
+                name: "ubuntu".into(),
+                active: true,
+            },
+        ]
+    }
+
+    #[test]
+    fn resolve_with_settings_matches_alias_firmware_and_id() {
+        let mut settings = Settings::default();
+        settings.entries.insert(
+            "Boot0002".into(),
+            EntrySettings {
+                hidden: false,
+                name: Some("开发系统".into()),
+            },
+        );
+        let entries = sample_entries();
+
+        let by_alias = resolve_with_settings(&entries, &settings, "开发").unwrap();
+        assert_eq!(by_alias.id, BootId::new(0x0002));
+        assert_eq!(by_alias.name, "开发系统");
+
+        // 改名后仍可用固件原名与编号匹配，且返回条目携带自定义名
+        let by_firmware = resolve_with_settings(&entries, &settings, "ubuntu").unwrap();
+        assert_eq!(by_firmware.id, BootId::new(0x0002));
+        assert_eq!(by_firmware.name, "开发系统");
+
+        let by_id = resolve_with_settings(&entries, &settings, "2").unwrap();
+        assert_eq!(by_id.id, BootId::new(0x0002));
+        assert_eq!(by_id.name, "开发系统");
     }
 }

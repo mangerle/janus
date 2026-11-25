@@ -263,6 +263,144 @@ mod shared {
         debug_assert_eq!(ICON_RGBA_32.len(), (W * H * 4) as usize);
         Icon::from_rgba(ICON_RGBA_32.to_vec(), W, H).expect("内置图标数据无效")
     }
+
+    #[cfg(test)]
+    mod tests {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::{Arc, Mutex};
+
+        use janus_core::{BootEntry, BootId, JanusError};
+
+        use super::{handle_menu_event, refresh_entries, MenuOutcome, TrayActions};
+        use crate::{ID_CLEAR, ID_QUIT, ID_REBOOT, ID_SETTINGS};
+
+        fn sample_entries() -> Vec<BootEntry> {
+            vec![
+                BootEntry {
+                    id: BootId::new(0x0001),
+                    name: "Windows Boot Manager".into(),
+                    active: true,
+                },
+                BootEntry {
+                    id: BootId::new(0x0002),
+                    name: "ubuntu".into(),
+                    active: true,
+                },
+            ]
+        }
+
+        fn dummy_actions(
+            confirm_result: bool,
+            log: Arc<Mutex<Vec<String>>>,
+            reload_ok: bool,
+        ) -> TrayActions {
+            let l1 = Arc::clone(&log);
+            let l2 = Arc::clone(&log);
+            let l3 = Arc::clone(&log);
+            let l4 = Arc::clone(&log);
+            let l5 = Arc::clone(&log);
+            TrayActions {
+                confirm: Arc::new(move |_| confirm_result),
+                switch_and_reboot: Arc::new(move |id| {
+                    l1.lock().unwrap().push(format!("switch:{id}"));
+                    Ok(())
+                }),
+                set_next: Arc::new(move |id| {
+                    l2.lock().unwrap().push(format!("next:{id}"));
+                    Ok(())
+                }),
+                clear_next: Arc::new(move || {
+                    l3.lock().unwrap().push("clear".into());
+                    Ok(())
+                }),
+                reboot: Arc::new(move || {
+                    l4.lock().unwrap().push("reboot".into());
+                    Ok(())
+                }),
+                current_next: Arc::new(|| None),
+                reload_entries: Arc::new(move || {
+                    if reload_ok {
+                        Ok(vec![BootEntry {
+                            id: BootId::new(0x0002),
+                            name: "Ubuntu 24.04".into(),
+                            active: true,
+                        }])
+                    } else {
+                        Err(JanusError::Other("模拟读取失败".into()))
+                    }
+                }),
+                open_settings: Arc::new(move || {
+                    l5.lock().unwrap().push("settings".into());
+                }),
+            }
+        }
+
+        #[test]
+        fn menu_event_routing_dispatches_expected_actions() {
+            let log = Arc::new(Mutex::new(Vec::new()));
+            let actions = dummy_actions(true, Arc::clone(&log), true);
+            let entries = sample_entries();
+
+            assert!(matches!(
+                handle_menu_event("boot:0001", &entries, &actions),
+                MenuOutcome::Continue
+            ));
+            assert!(matches!(
+                handle_menu_event("next:0002", &entries, &actions),
+                MenuOutcome::Continue
+            ));
+            assert!(matches!(
+                handle_menu_event(ID_CLEAR, &entries, &actions),
+                MenuOutcome::Continue
+            ));
+            assert!(matches!(
+                handle_menu_event(ID_REBOOT, &entries, &actions),
+                MenuOutcome::Continue
+            ));
+            assert!(matches!(
+                handle_menu_event(ID_SETTINGS, &entries, &actions),
+                MenuOutcome::OpenSettings
+            ));
+            assert!(matches!(
+                handle_menu_event(ID_QUIT, &entries, &actions),
+                MenuOutcome::Quit
+            ));
+
+            let recorded = log.lock().unwrap();
+            assert_eq!(
+                *recorded,
+                vec!["switch:Boot0001", "next:Boot0002", "clear", "reboot"]
+            );
+        }
+
+        #[test]
+        fn cancelled_boot_confirmation_skips_switch() {
+            let called = Arc::new(AtomicBool::new(false));
+            let log = Arc::new(Mutex::new(Vec::new()));
+            let mut actions = dummy_actions(false, log, true);
+            let flag = Arc::clone(&called);
+            actions.switch_and_reboot = Arc::new(move |_| {
+                flag.store(true, Ordering::SeqCst);
+                Ok(())
+            });
+            handle_menu_event("boot:0001", &sample_entries(), &actions);
+            assert!(!called.load(Ordering::SeqCst));
+        }
+
+        #[test]
+        fn refresh_entries_keeps_old_list_on_error() {
+            let log = Arc::new(Mutex::new(Vec::new()));
+            let mut entries = sample_entries();
+            let failing = dummy_actions(true, Arc::clone(&log), false);
+            refresh_entries(&mut entries, &failing);
+            assert_eq!(entries.len(), 2);
+
+            let succeeding = dummy_actions(true, log, true);
+            refresh_entries(&mut entries, &succeeding);
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].name, "Ubuntu 24.04");
+        }
+    }
 }
 
 // ---------- Linux：ksni 后端，无需事件循环 ----------

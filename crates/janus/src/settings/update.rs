@@ -444,3 +444,52 @@ fn with_error_hint(message: String) -> String {
     }
     message
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_hints_append_actionable_guidance() {
+        let denied = with_error_hint("Permission denied (os error 13)".into());
+        assert!(denied.contains("安装目录不可写"));
+
+        let missing_manifest = with_error_hint("HTTP 404 Not Found: latest.json".into());
+        assert!(missing_manifest.contains("尚未提供 latest.json"));
+
+        let plain = with_error_hint("网络超时".into());
+        assert_eq!(plain, "网络超时");
+    }
+
+    #[test]
+    fn updater_state_transitions_and_progress_preserve_percent() {
+        let mut ui = UpdaterUi::new(false);
+        assert!(matches!(ui.action(), AboutAction::Check));
+
+        ui.state = UpdateState::Working {
+            version: "0.2.0".into(),
+            percent: Some(0.5),
+            label: "下载中".into(),
+        };
+        // 阶段事件不带百分比时应保留已有进度 0.5
+        ui.handle(UpdateMessage::Progress {
+            percent: None,
+            label: "正在校验 SHA-256…".into(),
+        });
+        assert!(matches!(
+            ui.state,
+            UpdateState::Working {
+                percent: Some(p),
+                ref label,
+                ..
+            } if (p - 0.5).abs() < f32::EPSILON && label == "正在校验 SHA-256…"
+        ));
+
+        ui.handle(UpdateMessage::Installed(Ok("0.2.0".into())));
+        assert!(matches!(ui.action(), AboutAction::None));
+
+        ui.handle(UpdateMessage::Checked(Ok(None)));
+        assert!(matches!(ui.state, UpdateState::UpToDate));
+        assert!(matches!(ui.action(), AboutAction::Check));
+    }
+}
