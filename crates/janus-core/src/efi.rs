@@ -150,10 +150,14 @@ pub fn encode_boot_next(id: BootId) -> [u8; 2] {
 }
 
 /// 编码 EFI_LOAD_OPTION 原始字节（用于构造测试数据或固件写入）。
+///
+/// # Panics
+/// 当 `path.len()` 超过 `u16::MAX`（65535 字节）时 panic，防止长度字段静默回绕截断。
 pub fn encode_load_option(attrs: u32, desc: &str, path: &[u8]) -> Vec<u8> {
+    let path_len = u16::try_from(path.len()).expect("EFI 设备路径长度不能超过 u16::MAX (65535)");
     let mut v = Vec::with_capacity(6 + desc.len() * 2 + 2 + path.len());
     v.extend(attrs.to_le_bytes());
-    v.extend((path.len() as u16).to_le_bytes());
+    v.extend(path_len.to_le_bytes());
     for u in desc.encode_utf16() {
         v.extend(u.to_le_bytes());
     }

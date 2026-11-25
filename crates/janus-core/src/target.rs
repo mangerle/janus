@@ -31,7 +31,7 @@ impl From<&str> for BootTarget {
 ///   优先匹配编号、未命中时回退名称子串匹配；
 /// - 其余视为名称子串。
 pub fn parse_boot_target(s: &str) -> BootTarget {
-    let lower = s.trim().to_ascii_lowercase();
+    let lower = s.trim().to_lowercase();
     let (explicit_prefix, hex) = if let Some(rest) = lower.strip_prefix("boot") {
         (true, rest)
     } else if let Some(rest) = lower.strip_prefix("0x") {
@@ -52,10 +52,11 @@ pub fn parse_boot_target(s: &str) -> BootTarget {
     BootTarget::Name(lower)
 }
 
-/// 判断 `haystack` 是否包含 `needle_lower`（不区分大小写）。
+/// 判断 `haystack` 是否包含 `needle_lower`（不区分大小写，要求调用方已将
+/// `needle_lower` 转为小写）。
 ///
-/// 对纯 ASCII 文本走字节窗口比较，零堆分配；包含非 ASCII 字符时回退到
-/// Unicode 小写转换以正确处理多语言别名。
+/// 对纯 ASCII 文本走字节窗口比较，零堆分配；包含非 ASCII 字符时仅对
+/// `haystack` 做小写转换，避免循环内重复分配 `needle_lower`。
 pub fn contains_ignore_case(haystack: &str, needle_lower: &str) -> bool {
     if needle_lower.is_empty() {
         return true;
@@ -66,9 +67,7 @@ pub fn contains_ignore_case(haystack: &str, needle_lower: &str) -> bool {
             .windows(needle_lower.len())
             .any(|window| window.eq_ignore_ascii_case(needle_lower.as_bytes()));
     }
-    haystack
-        .to_lowercase()
-        .contains(&needle_lower.to_lowercase())
+    haystack.to_lowercase().contains(needle_lower)
 }
 
 /// 在启动项列表中解析目标：编号精确匹配；名称不区分大小写的子串匹配。
