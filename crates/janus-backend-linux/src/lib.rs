@@ -29,9 +29,13 @@ mod imp {
     /// 运行系统的 efivarfs 挂载点。
     const EFIVARS_DIR: &str = "/sys/firmware/efi/efivars";
 
-    // asm-generic/ioctls.h 中稳定的 ABI 常量（与 libc 的定义一致，本地声明避免版本差异）
-    const FS_IOC_GETFLAGS: libc::c_ulong = 0x8008_6601;
-    const FS_IOC_SETFLAGS: libc::c_ulong = 0x4008_6602;
+    // asm-generic/ioctls.h 中 _IOR('f', 1, long) / _IOW('f', 2, long) 的编译期编码，
+    // 按当前目标架构的 c_long 字节数自动适配 32 位与 64 位 Linux（0x8004_6601 / 0x8008_6601）
+    const FS_IOC_LONG_SIZE: libc::c_ulong = std::mem::size_of::<libc::c_long>() as libc::c_ulong;
+    const FS_IOC_GETFLAGS: libc::c_ulong =
+        (2 << 30) | (FS_IOC_LONG_SIZE << 16) | ((b'f' as libc::c_ulong) << 8) | 1;
+    const FS_IOC_SETFLAGS: libc::c_ulong =
+        (1 << 30) | (FS_IOC_LONG_SIZE << 16) | ((b'f' as libc::c_ulong) << 8) | 2;
     /// ext/ethtool 头文件中的 FS_IMMUTABLE_FL
     const FS_IMMUTABLE_FL: libc::c_ulong = 0x0000_0010;
 
