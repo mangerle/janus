@@ -203,7 +203,8 @@ fn run_apply(cli: &Cli, target: &str, reboot: bool) -> anyhow::Result<()> {
         println!("已清除 BootNext。");
     } else {
         let entries = mgr.list_entries()?;
-        let entry = resolve_target(&entries, &parse_boot_target(target))?;
+        let (settings, _) = Settings::load_from_default_location();
+        let entry = resolve_with_settings(&entries, &settings, target)?;
         mgr.set_boot_next(entry.id).context("写入 BootNext 失败")?;
         println!("已设置 BootNext → {}", entry.id);
     }

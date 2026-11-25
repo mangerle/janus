@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use janus_core::{BootEntry, BootId, BootManager, Result};
-// Windows 上由后端直接写固件，不构造 JanusError；Linux 与其他平台需使用
-#[cfg(not(target_os = "windows"))]
+// Windows 上由后端直接写固件，不构造 JanusError；Linux 提权已收敛到 janus-privilege
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 use janus_core::JanusError;
 
 use crate::cli::Cli;
@@ -255,29 +255,15 @@ fn make_current_next(mgr: SharedManager) -> Arc<dyn Fn() -> Option<BootId> + Sen
     Arc::new(move || mgr.boot_next().ok().flatten())
 }
 
-/// Linux 托盘动作：通过 pkexec 以 root 身份调用自身的 `_apply` helper。
+/// Linux 托盘动作：通过 `janus-privilege` 经 pkexec 以 root 身份调用自身的 `_apply` helper。
 /// polkit 密码框即确认步骤；helper 完成 BootNext 写入与（可选）重启。
 #[cfg(target_os = "linux")]
 fn pkexec_apply(target: &str, reboot: bool) -> Result<()> {
-    use std::process::Command;
-
-    let exe = std::env::current_exe()
-        .map_err(|e| JanusError::Elevation(format!("无法定位可执行文件：{e}")))?;
-    let mut cmd = Command::new("pkexec");
-    cmd.arg(&exe).arg(APPLY_SUBCOMMAND).arg(target);
+    let mut args = vec![APPLY_SUBCOMMAND, target];
     if reboot {
-        cmd.arg("--reboot");
+        args.push("--reboot");
     }
-    let status = cmd
-        .status()
-        .map_err(|e| JanusError::Elevation(format!("pkexec 启动失败（需要 polkit agent）：{e}")))?;
-    match status.code() {
-        Some(0) => Ok(()),
-        Some(code) => Err(JanusError::Elevation(format!(
-            "特权 helper 退出码 {code}（可能取消了授权）"
-        ))),
-        None => Err(JanusError::Elevation("特权 helper 被信号终止".into())),
-    }
+    janus_privilege::exec_pkexec_wait(&args)
 }
 
 /// Windows 托盘确认对话框（MessageBoxW）。

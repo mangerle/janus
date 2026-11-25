@@ -72,6 +72,32 @@ fn unix_reexec_elevated(args: &[String]) -> Result<i32> {
     }
 }
 
+/// 通过 `pkexec`（polkit 图形密码框）以 root 身份执行当前可执行文件并等待退出。
+///
+/// 专供无终端的桌面托盘等场景使用：不回退到需要终端交互的 `sudo`，
+/// 将图形提权策略集中在本 crate 统一审计。
+///
+/// # Errors
+/// 无法定位可执行文件、`pkexec` 启动失败、用户取消授权或子进程被信号终止时
+/// 返回 [`JanusError::Elevation`]。
+#[cfg(target_os = "linux")]
+pub fn exec_pkexec_wait(args: &[&str]) -> Result<()> {
+    let exe = std::env::current_exe()
+        .map_err(|e| JanusError::Elevation(format!("无法定位可执行文件：{e}")))?;
+    let status = Command::new("pkexec")
+        .arg(&exe)
+        .args(args)
+        .status()
+        .map_err(|e| JanusError::Elevation(format!("pkexec 启动失败（需要 polkit agent）：{e}")))?;
+    match status.code() {
+        Some(0) => Ok(()),
+        Some(code) => Err(JanusError::Elevation(format!(
+            "特权 helper 退出码 {code}（可能取消了授权）"
+        ))),
+        None => Err(JanusError::Elevation("特权 helper 被信号终止".into())),
+    }
+}
+
 #[cfg(windows)]
 mod win {
     use std::mem::size_of;
