@@ -98,9 +98,14 @@ impl Settings {
         Ok(())
     }
 
-    /// 指定启动项的设置（未配置时为 `None`）。
+    /// 指定启动项的设置（未配置时为 `None`；栈上格式化键名，零堆分配）。
     pub(crate) fn entry(&self, id: BootId) -> Option<&EntrySettings> {
-        self.entries.get(&id.to_string())
+        use std::io::Write as _;
+
+        let mut buf = [0u8; 8];
+        let _ = write!(&mut buf[..], "{id}");
+        let key = std::str::from_utf8(&buf).unwrap_or("");
+        self.entries.get(key)
     }
 
     /// 应用显示设置：过滤隐藏项并替换为自定义名称。

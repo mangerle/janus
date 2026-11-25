@@ -66,8 +66,21 @@ impl BootId {
 
 impl std::fmt::Display for BootId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // 经由 f.pad 输出，调用方的 {:<10} 等宽度标记才能生效
-        f.pad(&format!("Boot{:04X}", self.0))
+        // 在栈上格式化为固定 8 字节 ASCII 后交由 f.pad，零堆分配且支持宽度对齐
+        const HEX: &[u8; 16] = b"0123456789ABCDEF";
+        let v = self.0;
+        let buf = [
+            b'B',
+            b'o',
+            b'o',
+            b't',
+            HEX[((v >> 12) & 0xF) as usize],
+            HEX[((v >> 8) & 0xF) as usize],
+            HEX[((v >> 4) & 0xF) as usize],
+            HEX[(v & 0xF) as usize],
+        ];
+        let s = std::str::from_utf8(&buf).expect("ASCII 十六进制字节必定为合法 UTF-8");
+        f.pad(s)
     }
 }
 
@@ -176,17 +189,15 @@ pub fn parse_load_option(data: &[u8]) -> Result<LoadOption> {
     let attributes = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
     let file_path_list_length = u16::from_le_bytes([data[4], data[5]]);
 
-    let mut units = Vec::new();
-    let mut i = 6;
+    // 扫描 UTF-16LE 描述串直到 0x0000 结束符，再一次性流式解码进 String，避免中间 Vec<u16> 分配
+    let mut end = 6;
     let mut terminated = false;
-    while i + 1 < data.len() {
-        let unit = u16::from_le_bytes([data[i], data[i + 1]]);
-        i += 2;
-        if unit == 0 {
+    while end + 1 < data.len() {
+        if data[end] == 0 && data[end + 1] == 0 {
             terminated = true;
             break;
         }
-        units.push(unit);
+        end += 2;
     }
     if !terminated {
         return Err(JanusError::Parse {
@@ -194,7 +205,16 @@ pub fn parse_load_option(data: &[u8]) -> Result<LoadOption> {
             msg: "描述字符串未以 \\0 结尾".into(),
         });
     }
-    let description = String::from_utf16_lossy(&units);
+    let units = data[6..end]
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| u16::from_le_bytes(*c));
+    let mut description = String::with_capacity((end - 6) / 2);
+    for ch in char::decode_utf16(units) {
+        description.push(ch.unwrap_or(char::REPLACEMENT_CHARACTER));
+    }
+    let i = end + 2;
 
     // 描述之后紧跟 file_path_list_length 字节的设备路径列表；长度来自外部
     // 固件数据，用饱和加法防御，再与实际长度核对，杜绝越界

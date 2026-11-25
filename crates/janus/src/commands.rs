@@ -98,11 +98,29 @@ fn resolve_with_settings(
     target: &str,
 ) -> janus_core::Result<BootEntry> {
     let parsed = parse_boot_target(target);
-    let mut named = entries.to_vec();
-    settings.apply_names(&mut named);
-    resolve_target(&named, &parsed)
-        .or_else(|display_err| resolve_target(entries, &parsed).map_err(|_| display_err))
-        .cloned()
+    match &parsed {
+        janus_core::BootTarget::Id(_) => {
+            let mut matched = resolve_target(entries, &parsed)?.clone();
+            settings.apply_names(std::slice::from_mut(&mut matched));
+            Ok(matched)
+        }
+        janus_core::BootTarget::Name(needle) => {
+            if let Some(entry) = entries.iter().find(|e| {
+                let display_name = settings
+                    .entry(e.id)
+                    .and_then(|s| s.name.as_deref())
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or(&e.name);
+                display_name.to_lowercase().contains(needle.as_str())
+            }) {
+                let mut matched = entry.clone();
+                settings.apply_names(std::slice::from_mut(&mut matched));
+                return Ok(matched);
+            }
+            resolve_target(entries, &parsed).cloned()
+        }
+    }
 }
 
 /// `janus settings`：打开图形设置窗口；dry-run 下窗口只读，不写配置文件。
