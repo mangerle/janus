@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use janus_core::{BootEntry, BootId, BootManager, Result};
-// JanusError 仅 Linux 的 pkexec helper 使用
-#[cfg(target_os = "linux")]
+// Windows 上由后端直接写固件，不构造 JanusError；Linux 与其他平台需使用
+#[cfg(not(target_os = "windows"))]
 use janus_core::JanusError;
 
 use crate::cli::Cli;
@@ -203,6 +203,7 @@ fn set_next_action(mgr: &SharedManager, dry_run: bool, id: BootId) -> Result<()>
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
+        let _ = id;
         Err(JanusError::Other("此平台暂不支持".into()))
     }
 }
@@ -232,6 +233,7 @@ fn switch_and_reboot_action(mgr: &SharedManager, dry_run: bool, id: BootId) -> R
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
+        let _ = id;
         Err(JanusError::Other("此平台暂不支持".into()))
     }
 }
