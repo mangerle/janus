@@ -17,6 +17,8 @@
 
 #[cfg(target_os = "windows")]
 mod imp {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::{
         CloseHandle, GetLastError, ERROR_ENVVAR_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER,
@@ -60,8 +62,15 @@ mod imp {
         }
     }
 
+    /// 进程级特权缓存：SeSystemEnvironmentPrivilege 启用一次后在进程生命周期内持续有效，
+    /// 避免遍历 BootXXXX 时反复执行 OpenProcessToken + AdjustTokenPrivileges 系统调用。
+    static PRIVILEGE_ENABLED: AtomicBool = AtomicBool::new(false);
+
     /// 启用 `SeSystemEnvironmentPrivilege` 特权（读写固件变量必需）。
     fn enable_firmware_env_privilege() -> Result<()> {
+        if PRIVILEGE_ENABLED.load(Ordering::Acquire) {
+            return Ok(());
+        }
         unsafe {
             let mut raw_token = HANDLE::default();
             OpenProcessToken(
@@ -93,6 +102,7 @@ mod imp {
                 ));
             }
         }
+        PRIVILEGE_ENABLED.store(true, Ordering::Release);
         Ok(())
     }
 
