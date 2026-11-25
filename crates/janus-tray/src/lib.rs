@@ -467,35 +467,44 @@ mod linux {
 
 #[cfg(target_os = "windows")]
 mod windows_impl {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
     use super::shared::{build_tray, handle_menu_event, refresh, refresh_entries, spawn_settings};
-    use super::{BootEntry, MenuOutcome, Result, TrayActions};
+    use super::{BootEntry, Result, TrayActions, ID_QUIT, ID_SETTINGS};
     use crossbeam_channel::bounded;
     use janus_core::JanusError;
     use tao::event::Event;
     use tao::event_loop::{ControlFlow, EventLoopBuilder};
     use tray_icon::menu::MenuEvent;
 
-    /// tao 事件循环的用户事件：菜单动作或设置保存后的重载通知。
+    /// tao 事件循环的用户事件：菜单动作、动作完成刷新或设置保存后的重载通知。
     #[derive(Clone, Debug)]
     enum UserEvent {
         Menu(MenuEvent),
+        Refresh,
         Reload,
     }
 
     pub fn run(entries: Vec<BootEntry>, actions: TrayActions) -> Result<()> {
         let tray = build_tray(&entries, &actions)?;
         let (notify_tx, notify_rx) = bounded::<()>(1);
+        let actions = Arc::new(actions);
+        let shutting_down = Arc::new(AtomicBool::new(false));
 
         let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
 
         // 后台线程把 muda 菜单事件转发给 tao 事件循环
         let proxy = event_loop.create_proxy();
         let menu_proxy = proxy.clone();
+        let menu_shutdown = Arc::clone(&shutting_down);
         std::thread::Builder::new()
             .name("janus-menu-events".into())
             .spawn(move || {
                 while let Ok(ev) = MenuEvent::receiver().recv() {
-                    if menu_proxy.send_event(UserEvent::Menu(ev)).is_err() {
+                    if menu_shutdown.load(Ordering::Acquire)
+                        || menu_proxy.send_event(UserEvent::Menu(ev)).is_err()
+                    {
                         break;
                     }
                 }
@@ -503,12 +512,15 @@ mod windows_impl {
             .map_err(|e| JanusError::Other(format!("创建菜单事件线程失败：{e}")))?;
 
         // 设置窗口关闭后，把重载通知转交给 tao 事件循环
-        let reload_proxy = proxy;
+        let reload_proxy = proxy.clone();
+        let reload_shutdown = Arc::clone(&shutting_down);
         std::thread::Builder::new()
             .name("janus-settings-reload".into())
             .spawn(move || {
                 while notify_rx.recv().is_ok() {
-                    if reload_proxy.send_event(UserEvent::Reload).is_err() {
+                    if reload_shutdown.load(Ordering::Acquire)
+                        || reload_proxy.send_event(UserEvent::Reload).is_err()
+                    {
                         break;
                     }
                 }
@@ -522,11 +534,28 @@ mod windows_impl {
             match event {
                 Event::UserEvent(UserEvent::Menu(menu_event)) => {
                     let id = menu_event.id().0.clone();
-                    match handle_menu_event(&id, &entries, &actions) {
-                        MenuOutcome::Quit => *control_flow = ControlFlow::Exit,
-                        MenuOutcome::OpenSettings => spawn_settings(&actions, &notify_tx),
-                        MenuOutcome::Continue => {}
+                    if id == ID_QUIT {
+                        shutting_down.store(true, Ordering::Release);
+                        *control_flow = ControlFlow::Exit;
+                    } else if id == ID_SETTINGS {
+                        spawn_settings(&actions, &notify_tx);
+                    } else {
+                        // 在独立工作线程执行确认弹窗与固件写入，避免阻塞 tao 主消息泵
+                        let entries_snapshot = entries.clone();
+                        let actions_ref = Arc::clone(&actions);
+                        let done_proxy = proxy.clone();
+                        if let Err(e) = std::thread::Builder::new()
+                            .name("janus-tray-action".into())
+                            .spawn(move || {
+                                let _ = handle_menu_event(&id, &entries_snapshot, &actions_ref);
+                                let _ = done_proxy.send_event(UserEvent::Refresh);
+                            })
+                        {
+                            log::error!("创建托盘动作线程失败：{e}");
+                        }
                     }
+                }
+                Event::UserEvent(UserEvent::Refresh) => {
                     refresh(&tray, &entries, &actions);
                 }
                 Event::UserEvent(UserEvent::Reload) => {
