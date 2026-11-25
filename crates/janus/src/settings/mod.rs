@@ -14,6 +14,7 @@
 mod chrome;
 mod theme;
 mod update;
+mod update_worker;
 mod widgets;
 
 use std::path::{Path, PathBuf};
