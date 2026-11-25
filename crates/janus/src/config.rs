@@ -81,20 +81,26 @@ impl Settings {
         }
     }
 
-    /// 原子写回配置文件：先写同目录临时文件再重命名，避免半截文件。
+    /// 原子写回配置文件：在同目录创建唯一临时文件写入后原子替换，避免半截文件与并发覆盖。
     ///
     /// # Errors
-    /// 目录创建、序列化或写入/重命名失败时返回错误。
+    /// 目录创建、序列化或写入/替换失败时返回错误。
     pub(crate) fn save(&self, path: &Path) -> anyhow::Result<()> {
+        use std::io::Write as _;
+
         let dir = path
             .parent()
             .ok_or_else(|| anyhow!("配置文件路径缺少父目录：{}", path.display()))?;
         fs::create_dir_all(dir).with_context(|| format!("创建配置目录失败：{}", dir.display()))?;
         let text = toml::to_string_pretty(self).context("序列化显示设置失败")?;
-        let tmp = path.with_extension("toml.tmp");
-        fs::write(&tmp, text)
-            .with_context(|| format!("写入临时配置文件失败：{}", tmp.display()))?;
-        fs::rename(&tmp, path).with_context(|| format!("替换配置文件失败：{}", path.display()))?;
+        let mut tmp = tempfile::NamedTempFile::new_in(dir)
+            .with_context(|| format!("创建临时配置文件失败：{}", dir.display()))?;
+        tmp.write_all(text.as_bytes())
+            .with_context(|| format!("写入临时配置文件失败：{}", tmp.path().display()))?;
+        tmp.as_file().sync_all().ok();
+        tmp.persist(path)
+            .map_err(|e| e.error)
+            .with_context(|| format!("替换配置文件失败：{}", path.display()))?;
         Ok(())
     }
 
