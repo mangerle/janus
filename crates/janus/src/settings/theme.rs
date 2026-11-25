@@ -304,9 +304,8 @@ fn run_command(program: &str, args: &[&str]) -> Option<String> {
                 return Some(output);
             }
             Ok(None) if Instant::now() >= deadline => {
-                let _ = child.kill();
-                let _ = child.wait();
                 log::debug!("系统主题探测命令超时：{program}");
+                terminate_child(&mut child);
                 return None;
             }
             Ok(None) => {
@@ -314,10 +313,15 @@ fn run_command(program: &str, args: &[&str]) -> Option<String> {
                 backoff = (backoff * 2).min(Duration::from_millis(16));
             }
             Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
+                terminate_child(&mut child);
                 return None;
             }
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn terminate_child(child: &mut std::process::Child) {
+    let _ = child.kill();
+    let _ = child.wait();
 }

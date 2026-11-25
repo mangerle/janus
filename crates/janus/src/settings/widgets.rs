@@ -3,6 +3,11 @@
 use eframe::egui;
 use janus_core::BootId;
 
+/// 开关交互区固定宽度（供父级计算列宽）。
+pub(crate) const SWITCH_WIDTH: f32 = 44.0;
+/// 启动项编号胶囊固定宽度（供父级计算列宽）。
+pub(crate) const ID_BADGE_WIDTH: f32 = 74.0;
+
 /// 一行的编辑状态：显示开关与自定义名称。
 pub(crate) struct SettingsRow {
     pub(crate) id: BootId,
@@ -120,10 +125,10 @@ pub(crate) fn row_ui(
 
 fn row_id_badge(ui: &mut egui::Ui, id: BootId) {
     ui.allocate_ui_with_layout(
-        egui::vec2(74.0, 24.0),
+        egui::vec2(ID_BADGE_WIDTH, 24.0),
         egui::Layout::left_to_right(egui::Align::Center),
         |ui| {
-            ui.set_width(74.0);
+            ui.set_width(ID_BADGE_WIDTH);
             egui::Frame::new()
                 .fill(ui.visuals().widgets.inactive.weak_bg_fill)
                 .stroke(egui::Stroke::new(
@@ -227,7 +232,8 @@ fn clear_icon_button(ui: &mut egui::Ui) -> egui::Response {
 
 /// 自绘开关：44x32 交互区，轨道 40x20，开启时用品牌强调色。
 fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
-    let (rect, mut response) = ui.allocate_exact_size(egui::vec2(44.0, 32.0), egui::Sense::click());
+    let (rect, mut response) =
+        ui.allocate_exact_size(egui::vec2(SWITCH_WIDTH, 32.0), egui::Sense::click());
     if response.clicked() {
         *on = !*on;
         response.mark_changed();

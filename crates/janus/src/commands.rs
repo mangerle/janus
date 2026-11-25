@@ -40,14 +40,7 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
         }
 
         Some(Command::Next { target }) => {
-            let mgr = backend(cli)?;
-            let entries = list_entries_maybe_elevate(cli, &args, mgr.as_ref())?;
-            let (settings, _) = Settings::load_from_default_location();
-            let entry = resolve_with_settings(&entries, &settings, target)?;
-            let (id, name) = (entry.id, entry.name.clone());
-            // 真实模式下写固件需要 root/管理员；不足时自动提权重执行本命令
-            require_elevated(cli, &args)?;
-            mgr.set_boot_next(id).context("写入 BootNext 失败")?;
+            let (id, name) = set_boot_next_for_target(cli, &args, target)?;
             println!("已设置下次启动：{id}（{name}）。重启后生效。");
         }
 
@@ -60,13 +53,7 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
 
         Some(Command::Reboot { into }) => {
             if let Some(target) = into {
-                let mgr = backend(cli)?;
-                let entries = list_entries_maybe_elevate(cli, &args, mgr.as_ref())?;
-                let (settings, _) = Settings::load_from_default_location();
-                let entry = resolve_with_settings(&entries, &settings, target)?;
-                let (id, name) = (entry.id, entry.name.clone());
-                require_elevated(cli, &args)?;
-                mgr.set_boot_next(id).context("写入 BootNext 失败")?;
+                let (id, name) = set_boot_next_for_target(cli, &args, target)?;
                 println!("已设置下次启动：{id}（{name}）。");
             }
             do_reboot()?;
@@ -91,6 +78,22 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// 解析目标启动项、按需提权并写入 BootNext（供 `next` 与 `reboot --into` 共用）。
+fn set_boot_next_for_target(
+    cli: &Cli,
+    args: &[String],
+    target: &str,
+) -> anyhow::Result<(janus_core::BootId, String)> {
+    let mgr = backend(cli)?;
+    let entries = list_entries_maybe_elevate(cli, args, mgr.as_ref())?;
+    let (settings, _) = Settings::load_from_default_location();
+    let entry = resolve_with_settings(&entries, &settings, target)?;
+    // 真实模式下写固件需要 root/管理员；不足时自动提权重执行本命令
+    require_elevated(cli, args)?;
+    mgr.set_boot_next(entry.id).context("写入 BootNext 失败")?;
+    Ok((entry.id, entry.name))
+}
+
 /// 解析启动目标：优先按显示名（自定义名称或固件名）匹配，再回退固件原名，
 /// 保证设置别名后仍可用编号或原始名称定位同一启动项。
 fn resolve_with_settings(
@@ -99,37 +102,28 @@ fn resolve_with_settings(
     target: &str,
 ) -> janus_core::Result<BootEntry> {
     let parsed = parse_boot_target(target);
-    match &parsed {
-        janus_core::BootTarget::Id(_) => {
-            let mut matched = resolve_target(entries, &parsed)?.clone();
-            settings.apply_names(std::slice::from_mut(&mut matched));
-            Ok(matched)
-        }
+    let found = match &parsed {
+        janus_core::BootTarget::Id(_) => resolve_target(entries, &parsed)?,
         janus_core::BootTarget::Name(needle) => {
-            if let Some(entry) = find_by_display_name(entries, settings, needle) {
-                let mut matched = entry.clone();
-                settings.apply_names(std::slice::from_mut(&mut matched));
-                return Ok(matched);
+            match find_by_display_name(entries, settings, needle) {
+                Some(entry) => entry,
+                None => resolve_target(entries, &parsed)?,
             }
-            let mut matched = resolve_target(entries, &parsed)?.clone();
-            settings.apply_names(std::slice::from_mut(&mut matched));
-            Ok(matched)
         }
         janus_core::BootTarget::IdOrName { id, name } => {
-            let found = entries
+            match entries
                 .iter()
                 .find(|e| e.id == *id)
-                .or_else(|| find_by_display_name(entries, settings, name));
-            if let Some(entry) = found {
-                let mut matched = entry.clone();
-                settings.apply_names(std::slice::from_mut(&mut matched));
-                return Ok(matched);
+                .or_else(|| find_by_display_name(entries, settings, name))
+            {
+                Some(entry) => entry,
+                None => resolve_target(entries, &parsed)?,
             }
-            let mut matched = resolve_target(entries, &parsed)?.clone();
-            settings.apply_names(std::slice::from_mut(&mut matched));
-            Ok(matched)
         }
-    }
+    };
+    let mut matched = found.clone();
+    settings.apply_names(std::slice::from_mut(&mut matched));
+    Ok(matched)
 }
 
 /// 按显示名（自定义名优先，回退固件名）做不区分大小写的子串匹配。

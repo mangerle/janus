@@ -29,6 +29,7 @@ use crate::config::{EntrySettings, Settings};
 use update::UpdaterUi;
 use widgets::{
     alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, SettingsRow,
+    ID_BADGE_WIDTH, SWITCH_WIDTH,
 };
 
 /// 打开设置窗口并阻塞到窗口关闭；保存成功后写回配置文件。
@@ -273,7 +274,8 @@ impl SettingsApp {
 
             let available = ui.available_width();
             let field_width = (available * 0.38).clamp(160.0, 250.0);
-            let name_block_width = (available - 44.0 - 74.0 - field_width - 48.0).max(110.0);
+            let name_block_width =
+                (available - SWITCH_WIDTH - ID_BADGE_WIDTH - field_width - 48.0).max(110.0);
             for (index, row) in self.rows.iter_mut().enumerate() {
                 if index > 0 {
                     ui.add_space(2.0);
