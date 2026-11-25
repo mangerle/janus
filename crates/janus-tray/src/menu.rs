@@ -1,5 +1,6 @@
 //! 托盘菜单构建、图标生成、事件路由与设置重载辅助。
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crossbeam_channel::Sender;
@@ -44,8 +45,13 @@ pub(crate) fn build_menu(entries: &[BootEntry], actions: &TrayActions) -> Menu {
         );
         let _ = menu.append(&hint);
     } else {
-        let _ = menu.append(&entry_submenu("重启并进入", ID_BOOT, entries));
-        let _ = menu.append(&entry_submenu("仅下次启动", ID_NEXT, entries));
+        // 预先统计名称频次，避免两个子菜单各自 O(N^2) 扫描重名条目
+        let mut counts = HashMap::with_capacity(entries.len());
+        for e in entries {
+            *counts.entry(e.name.as_str()).or_insert(0usize) += 1;
+        }
+        let _ = menu.append(&entry_submenu("重启并进入", ID_BOOT, entries, &counts));
+        let _ = menu.append(&entry_submenu("仅下次启动", ID_NEXT, entries, &counts));
     }
 
     let _ = menu.append(&PredefinedMenuItem::separator());
@@ -67,15 +73,15 @@ pub(crate) fn build_menu(entries: &[BootEntry], actions: &TrayActions) -> Menu {
 ///
 /// 默认仅展示启动项名称，去掉 `BootXXXX` 前缀保持菜单清爽；
 /// 仅当列表中存在同名条目时才附加编号消歧义。
-fn entry_submenu(title: &str, prefix: &str, entries: &[BootEntry]) -> Submenu {
+fn entry_submenu(
+    title: &str,
+    prefix: &str,
+    entries: &[BootEntry],
+    counts: &HashMap<&str, usize>,
+) -> Submenu {
     let submenu = Submenu::new(title, true);
     for e in entries {
-        let duplicated = entries
-            .iter()
-            .filter(|other| other.name == e.name)
-            .take(2)
-            .count()
-            > 1;
+        let duplicated = counts.get(e.name.as_str()).copied().unwrap_or(0) > 1;
         let label = if duplicated {
             format!("{}（{}）", e.name, e.id)
         } else {
