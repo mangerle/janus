@@ -87,13 +87,7 @@ mod win {
     use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW};
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
-    /// UTF-16LE + NUL 结尾；容量已知，预分配避免多次扩容拷贝。
-    pub(super) fn to_wide(s: &str) -> Vec<u16> {
-        let mut wide = Vec::with_capacity(s.len() + 1);
-        wide.extend(s.encode_utf16());
-        wide.push(0);
-        wide
-    }
+    use janus_core::to_wide_null;
 
     /// Win32 HANDLE 的 RAII 守卫：确保提前返回或异常展开时自动释放内核句柄。
     struct OwnedHandle(HANDLE);
@@ -135,8 +129,8 @@ mod win {
         use janus_core::JanusError;
 
         let params = super::join_windows_args(args);
-        let exe_w = to_wide(exe);
-        let params_w = to_wide(&params);
+        let exe_w = to_wide_null(exe);
+        let params_w = to_wide_null(&params);
 
         let mut sei = SHELLEXECUTEINFOW {
             cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,

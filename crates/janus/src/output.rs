@@ -51,8 +51,6 @@ pub(crate) fn print_entries(
 
 /// `janus update` 的进度渲染：进度行用 \r 原地刷新，阶段切换时换行输出。
 pub(crate) fn progress_printer() -> impl FnMut(UpdateEvent) {
-    use janus_updater::UpdateStage;
-
     let mut last_was_progress = false;
     move |event| match event {
         UpdateEvent::DownloadProgress {
@@ -74,18 +72,7 @@ pub(crate) fn progress_printer() -> impl FnMut(UpdateEvent) {
                 eprintln!();
                 last_was_progress = false;
             }
-            let label = match stage {
-                UpdateStage::CheckingManifest => "正在读取更新清单…",
-                UpdateStage::DownloadStarted => "开始下载更新包…",
-                UpdateStage::VerifyingChecksum => "正在校验 SHA-256…",
-                UpdateStage::VerifyingSignature => "正在校验 Ed25519 签名…",
-                UpdateStage::ExtractingArchive => "正在解压更新包…",
-                UpdateStage::Installing => "正在写入新版本…",
-                UpdateStage::ReadyToRestart => "安装就绪",
-                UpdateStage::DeferredToReboot => "已推迟到系统重启后生效",
-                UpdateStage::Completed => "安装完成",
-                _ => "",
-            };
+            let label = stage.label();
             if !label.is_empty() {
                 eprintln!("  {label}");
             }

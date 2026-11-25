@@ -13,7 +13,7 @@ use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::time::Duration;
 
 use eframe::egui;
-use janus_updater::{UpdateEvent, UpdateInfo, UpdateStage};
+use janus_updater::{UpdateEvent, UpdateInfo};
 
 /// 当前应用版本（编译期注入）。
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -393,7 +393,7 @@ fn forward_event(tx: &SyncSender<UpdateMessage>, event: UpdateEvent) {
         },
         UpdateEvent::Stage(stage) => UpdateMessage::Progress {
             percent: None,
-            label: stage_label(stage).into(),
+            label: stage.label().into(),
         },
         UpdateEvent::Retrying {
             attempt,
@@ -410,23 +410,6 @@ fn forward_event(tx: &SyncSender<UpdateMessage>, event: UpdateEvent) {
         _ => return,
     };
     let _ = tx.try_send(message);
-}
-
-fn stage_label(stage: UpdateStage) -> &'static str {
-    match stage {
-        UpdateStage::CheckingManifest => "正在读取更新清单…",
-        UpdateStage::DownloadStarted => "开始下载更新包…",
-        UpdateStage::VerifyingChecksum => "正在校验 SHA-256…",
-        UpdateStage::VerifyingSignature => "正在校验 Ed25519 签名…",
-        UpdateStage::ExtractingArchive => "正在解压更新包…",
-        UpdateStage::Installing => "正在写入新版本…",
-        UpdateStage::ReadyToRestart => "安装就绪，重启后生效",
-        UpdateStage::DeferredToReboot => "已推迟到系统重启后生效",
-        UpdateStage::Completed => "安装完成",
-        UpdateStage::Other => "处理中…",
-        // 非穷尽枚举：上游新增阶段时给出兜底文案
-        _ => "处理中…",
-    }
 }
 
 /// 次要操作用幽灵按钮：透明底、强调色文字、细边框。

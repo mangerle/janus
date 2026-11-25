@@ -32,8 +32,8 @@ mod imp {
     };
 
     use janus_core::{
-        collect_boot_entries, encode_boot_next, parse_boot_next, BootEntry, BootId, BootManager,
-        JanusError, Result, EFI_VARIABLE_GUID_BRACED,
+        collect_boot_entries, encode_boot_next, parse_boot_next, to_wide_null, BootEntry, BootId,
+        BootManager, JanusError, Result, EFI_VARIABLE_GUID_BRACED,
     };
 
     /// 基于 Win32 固件环境变量 API 的启动管理器。
@@ -44,14 +44,6 @@ mod imp {
         /// 使用当前系统的 UEFI 固件接口。
         pub fn for_running_system() -> Result<Self> {
             Ok(Self)
-        }
-
-        /// UTF-16LE + NUL 结尾；容量已知，预分配避免多次扩容拷贝。
-        fn to_wide(s: &str) -> Vec<u16> {
-            let mut wide = Vec::with_capacity(s.len() + 1);
-            wide.extend(s.encode_utf16());
-            wide.push(0);
-            wide
         }
     }
 
@@ -107,8 +99,8 @@ mod imp {
     /// 读取一个固件环境变量。变量不存在返回 `None`。
     fn get_var(name: &str) -> Result<Option<Vec<u8>>> {
         enable_firmware_env_privilege()?;
-        let name_w = WindowsBootManager::to_wide(name);
-        let guid_w = WindowsBootManager::to_wide(EFI_VARIABLE_GUID_BRACED);
+        let name_w = to_wide_null(name);
+        let guid_w = to_wide_null(EFI_VARIABLE_GUID_BRACED);
 
         // 启动项变量通常不到 1KB；缓冲区不足时按 ERROR_INSUFFICIENT_BUFFER 扩容重试
         let mut size: usize = 1024;
@@ -144,8 +136,8 @@ mod imp {
     /// 写入一个固件环境变量；数据为空时删除该变量。
     fn set_var(name: &str, data: &[u8]) -> Result<()> {
         enable_firmware_env_privilege()?;
-        let name_w = WindowsBootManager::to_wide(name);
-        let guid_w = WindowsBootManager::to_wide(EFI_VARIABLE_GUID_BRACED);
+        let name_w = to_wide_null(name);
+        let guid_w = to_wide_null(EFI_VARIABLE_GUID_BRACED);
         unsafe {
             SetFirmwareEnvironmentVariableW(
                 PCWSTR(name_w.as_ptr()),

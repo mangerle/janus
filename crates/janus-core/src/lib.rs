@@ -238,6 +238,28 @@ pub fn encode_boot_next(id: BootId) -> [u8; 2] {
     id.raw().to_le_bytes()
 }
 
+/// 编码 EFI_LOAD_OPTION 原始字节（用于构造测试数据或固件写入）。
+pub fn encode_load_option(attrs: u32, desc: &str, path: &[u8]) -> Vec<u8> {
+    let mut v = Vec::with_capacity(6 + desc.len() * 2 + 2 + path.len());
+    v.extend(attrs.to_le_bytes());
+    v.extend((path.len() as u16).to_le_bytes());
+    for u in desc.encode_utf16() {
+        v.extend(u.to_le_bytes());
+    }
+    v.extend(0u16.to_le_bytes());
+    v.extend(path);
+    v
+}
+
+/// 编码 UTF-16LE + NUL 结尾字符串（供 Win32 宽字符 API 使用）。
+#[cfg(windows)]
+pub fn to_wide_null(s: &str) -> Vec<u16> {
+    let mut wide = Vec::with_capacity(s.len() + 1);
+    wide.extend(s.encode_utf16());
+    wide.push(0);
+    wide
+}
+
 /// efivarfs 变量文件开头的 4 字节属性头（小端）。
 pub fn efivarfs_attr_header(attrs: u32) -> [u8; 4] {
     attrs.to_le_bytes()
@@ -358,16 +380,7 @@ mod tests {
 
     /// 按 EFI_LOAD_OPTION 布局构造原始字节（用于测试）。
     fn make_load_option(attrs: u32, desc: &str, path: &[u8]) -> Vec<u8> {
-        let mut v = Vec::with_capacity(6 + desc.len() * 2 + 2 + path.len());
-        v.extend(attrs.to_le_bytes());
-        v.extend((path.len() as u16).to_le_bytes());
-        let mut units: Vec<u16> = desc.encode_utf16().collect();
-        units.push(0); // 结束符
-        for u in units {
-            v.extend(u.to_le_bytes());
-        }
-        v.extend(path);
-        v
+        encode_load_option(attrs, desc, path)
     }
 
     #[test]

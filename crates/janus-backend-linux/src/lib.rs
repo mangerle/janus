@@ -198,22 +198,8 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use janus_core::LOAD_OPTION_ACTIVE;
+        use janus_core::{encode_load_option, LOAD_OPTION_ACTIVE};
         use std::fs;
-
-        /// 按 EFI_LOAD_OPTION 布局构造 BootXXXX 数据（测试辅助）。
-        fn make_load_option(attrs: u32, desc: &str, path: &[u8]) -> Vec<u8> {
-            let mut v = Vec::new();
-            v.extend(attrs.to_le_bytes());
-            v.extend((path.len() as u16).to_le_bytes());
-            let mut units: Vec<u16> = desc.encode_utf16().collect();
-            units.push(0);
-            for u in units {
-                v.extend(u.to_le_bytes());
-            }
-            v.extend(path);
-            v
-        }
 
         /// 在临时目录中写一个模拟的 efivarfs 变量文件（含 4 字节属性头）。
         fn write_var_file(dir: &Path, name: &str, attrs: u32, data: &[u8]) {
@@ -235,20 +221,20 @@ mod imp {
                 dir.path(),
                 "Boot0001",
                 0x7,
-                &make_load_option(LOAD_OPTION_ACTIVE, "Windows Boot Manager", &[1, 2, 3, 4]),
+                &encode_load_option(LOAD_OPTION_ACTIVE, "Windows Boot Manager", &[1, 2, 3, 4]),
             );
             write_var_file(
                 dir.path(),
                 "Boot0002",
                 0x7,
-                &make_load_option(LOAD_OPTION_ACTIVE, "ubuntu", &[]),
+                &encode_load_option(LOAD_OPTION_ACTIVE, "ubuntu", &[]),
             );
             // Boot0003：未列入 BootOrder，应被忽略
             write_var_file(
                 dir.path(),
                 "Boot0003",
                 0x7,
-                &make_load_option(LOAD_OPTION_ACTIVE, "orphan", &[]),
+                &encode_load_option(LOAD_OPTION_ACTIVE, "orphan", &[]),
             );
             // Boot0004：在 BootOrder 中但数据损坏，应被跳过
             write_var_file(dir.path(), "Boot0004", 0x7, &[0xAB, 0xCD, 0xEF]);

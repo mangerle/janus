@@ -203,7 +203,7 @@ pub(crate) fn do_reboot() -> janus_core::Result<()> {
 // ---------- 后端选择与权限 ----------
 
 /// 按平台与 dry-run 标志选择启动管理器。
-fn backend(cli: &Cli) -> anyhow::Result<Box<dyn BootManager>> {
+pub(crate) fn backend(cli: &Cli) -> anyhow::Result<Box<dyn BootManager>> {
     if cli.dry_run {
         return Ok(Box::new(MockManager::typical_dual_boot()));
     }

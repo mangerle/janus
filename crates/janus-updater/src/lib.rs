@@ -171,6 +171,24 @@ pub enum UpdateStage {
     Other,
 }
 
+impl UpdateStage {
+    /// 返回用于 CLI 与图形界面的统一中文阶段描述。
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::CheckingManifest => "正在读取更新清单…",
+            Self::DownloadStarted => "开始下载更新包…",
+            Self::VerifyingChecksum => "正在校验 SHA-256…",
+            Self::VerifyingSignature => "正在校验 Ed25519 签名…",
+            Self::ExtractingArchive => "正在解压更新包…",
+            Self::Installing => "正在写入新版本…",
+            Self::ReadyToRestart => "安装就绪，重启后生效",
+            Self::DeferredToReboot => "已推迟到系统重启后生效",
+            Self::Completed => "安装完成",
+            Self::Other => "处理中…",
+        }
+    }
+}
+
 /// 自更新进度事件。
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]

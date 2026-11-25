@@ -20,9 +20,9 @@ use janus_core::JanusError;
 use crate::cli::Cli;
 #[cfg(target_os = "linux")]
 use crate::cli::APPLY_SUBCOMMAND;
-use crate::commands::do_reboot;
 #[cfg(target_os = "windows")]
 use crate::commands::require_elevated;
+use crate::commands::{backend, do_reboot};
 use crate::config::Settings;
 
 /// 托盘动作层共享的后端句柄（Arc 动态分发）。
@@ -49,7 +49,7 @@ pub(crate) fn run_tray(cli: &Cli) -> anyhow::Result<()> {
         }
     }
 
-    let mgr: SharedManager = Arc::from(backend_for_tray(cli)?);
+    let mgr: SharedManager = Arc::from(backend(cli)?);
     let (settings, config_path) = Settings::load_from_default_location();
     let mut entries = mgr.list_entries().context("读取启动项列表失败")?;
     settings.apply(&mut entries, cli.all);
@@ -57,30 +57,6 @@ pub(crate) fn run_tray(cli: &Cli) -> anyhow::Result<()> {
     let actions = build_tray_actions(cli, Arc::clone(&mgr), config_path);
     janus_tray::run(entries, actions)?;
     Ok(())
-}
-
-/// 托盘使用的后端选择（Linux 托盘无需特权，故不走 require_elevated）。
-#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
-fn backend_for_tray(cli: &Cli) -> anyhow::Result<Box<dyn BootManager>> {
-    if cli.dry_run {
-        return Ok(Box::new(janus_core::MockManager::typical_dual_boot()));
-    }
-    #[cfg(target_os = "linux")]
-    {
-        Ok(Box::new(
-            janus_backend_linux::LinuxBootManager::for_running_system()?,
-        ))
-    }
-    #[cfg(target_os = "windows")]
-    {
-        Ok(Box::new(
-            janus_backend_windows::WindowsBootManager::for_running_system()?,
-        ))
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        Err(JanusError::Other("此平台暂不支持".into()).into())
-    }
 }
 
 /// 装配托盘动作回调集合；每个动作拆分为独立构造函数，闭包保持扁平。
@@ -312,9 +288,8 @@ fn windows_confirm(msg: &str) -> bool {
         MessageBoxW, IDYES, MB_ICONQUESTION, MB_SETFOREGROUND, MB_YESNO,
     };
 
-    let to_wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
-    let msg_w = to_wide(msg);
-    let title_w = to_wide("Janus 启动切换");
+    let msg_w = janus_core::to_wide_null(msg);
+    let title_w = janus_core::to_wide_null("Janus 启动切换");
     unsafe {
         MessageBoxW(
             None,
