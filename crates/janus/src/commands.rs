@@ -105,15 +105,21 @@ fn resolve_with_settings(
             Ok(matched)
         }
         janus_core::BootTarget::Name(needle) => {
-            if let Some(entry) = entries.iter().find(|e| {
-                let display_name = settings
-                    .entry(e.id)
-                    .and_then(|s| s.name.as_deref())
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or(&e.name);
-                display_name.to_lowercase().contains(needle.as_str())
-            }) {
+            if let Some(entry) = find_by_display_name(entries, settings, needle) {
+                let mut matched = entry.clone();
+                settings.apply_names(std::slice::from_mut(&mut matched));
+                return Ok(matched);
+            }
+            let mut matched = resolve_target(entries, &parsed)?.clone();
+            settings.apply_names(std::slice::from_mut(&mut matched));
+            Ok(matched)
+        }
+        janus_core::BootTarget::IdOrName { id, name } => {
+            let found = entries
+                .iter()
+                .find(|e| e.id == *id)
+                .or_else(|| find_by_display_name(entries, settings, name));
+            if let Some(entry) = found {
                 let mut matched = entry.clone();
                 settings.apply_names(std::slice::from_mut(&mut matched));
                 return Ok(matched);
@@ -123,6 +129,23 @@ fn resolve_with_settings(
             Ok(matched)
         }
     }
+}
+
+/// 按显示名（自定义名优先，回退固件名）做不区分大小写的子串匹配。
+fn find_by_display_name<'a>(
+    entries: &'a [BootEntry],
+    settings: &Settings,
+    needle: &str,
+) -> Option<&'a BootEntry> {
+    entries.iter().find(|e| {
+        let display_name = settings
+            .entry(e.id)
+            .and_then(|s| s.name.as_deref())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(&e.name);
+        display_name.to_lowercase().contains(needle)
+    })
 }
 
 /// `janus settings`：打开图形设置窗口；dry-run 下窗口只读，不写配置文件。

@@ -315,10 +315,18 @@ pub fn boot_id_from_var_name(name: &str) -> Option<BootId> {
 /// 用户输入的启动目标。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BootTarget {
-    /// 按 BootXXXX 编号（输入按十六进制解析）。
+    /// 明确的 BootXXXX 编号（纯数字或带 `boot`/`0x` 前缀的十六进制）。
     Id(BootId),
     /// 按名称子串匹配（不区分大小写）。
     Name(String),
+    /// 无前缀且含十六进制字母 `a-f` 的 1~4 位输入（如 `"cafe"`/`"bed"`）：
+    /// 优先按编号精确匹配，未命中时回退名称子串匹配。
+    IdOrName {
+        /// 按十六进制解析的候选编号。
+        id: BootId,
+        /// 原始小写名称子串。
+        name: String,
+    },
 }
 
 impl From<&str> for BootTarget {
@@ -328,22 +336,27 @@ impl From<&str> for BootTarget {
 }
 
 /// 解析用户输入的目标：
-/// `"1"`、`"0x1"`、`"Boot0002"`（十六进制）视为编号；其余视为名称子串。
-///
-/// 纯十六进制字符的短输入优先按编号解析（如 `"beef"` 会命中 BootBEFF 而非
-/// 名称匹配），这是文档化的有损取舍：编号是双系统场景最高频的输入。
+/// - 纯数字（如 `"1"`）或带 `boot`/`0x` 前缀（如 `"0x1"`、`"Boot0002"`）视为明确编号；
+/// - 无前缀但含 `a-f` 的 1~4 位十六进制串（如 `"cafe"`）视为 [`BootTarget::IdOrName`]，
+///   优先匹配编号、未命中时回退名称子串匹配；
+/// - 其余视为名称子串。
 pub fn parse_boot_target(s: &str) -> BootTarget {
     let lower = s.trim().to_ascii_lowercase();
-    let hex = if let Some(rest) = lower.strip_prefix("boot") {
-        rest
+    let (explicit_prefix, hex) = if let Some(rest) = lower.strip_prefix("boot") {
+        (true, rest)
     } else if let Some(rest) = lower.strip_prefix("0x") {
-        rest
+        (true, rest)
     } else {
-        lower.as_str()
+        (false, lower.as_str())
     };
     if !hex.is_empty() && hex.len() <= 4 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
         if let Ok(raw) = u16::from_str_radix(hex, 16) {
-            return BootTarget::Id(BootId::new(raw));
+            let id = BootId::new(raw);
+            let only_digits = hex.chars().all(|c| c.is_ascii_digit());
+            if explicit_prefix || only_digits {
+                return BootTarget::Id(id);
+            }
+            return BootTarget::IdOrName { id, name: lower };
         }
     }
     BootTarget::Name(lower)
@@ -404,6 +417,15 @@ pub fn resolve_target<'a>(entries: &'a [BootEntry], target: &BootTarget) -> Resu
         BootTarget::Name(name) => entries
             .iter()
             .find(|e| e.name.to_lowercase().contains(name.as_str()))
+            .ok_or_else(|| JanusError::EntryNotFound(name.clone())),
+        BootTarget::IdOrName { id, name } => entries
+            .iter()
+            .find(|e| e.id == *id)
+            .or_else(|| {
+                entries
+                    .iter()
+                    .find(|e| e.name.to_lowercase().contains(name.as_str()))
+            })
             .ok_or_else(|| JanusError::EntryNotFound(name.clone())),
     }
 }
@@ -582,5 +604,14 @@ mod tests {
         assert_eq!(by_name.name, "Windows Boot Manager");
         assert_eq!(by_id.name, "ubuntu");
         assert!(resolve_target(&entries, &BootTarget::Name("linux".into())).is_err());
+
+        // 无前缀十六进制单词（如 "cafe"）优先按编号匹配，未命中时回退名称子串
+        let cafe_entries = vec![BootEntry {
+            id: BootId::new(0x0001),
+            name: "CafeOS".into(),
+            active: true,
+        }];
+        let cafe = resolve_target(&cafe_entries, &parse_boot_target("cafe")).unwrap();
+        assert_eq!(cafe.name, "CafeOS");
     }
 }
