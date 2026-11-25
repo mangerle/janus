@@ -250,9 +250,15 @@ fn make_reboot(dry_run: bool) -> Arc<dyn Fn() -> Result<()> + Send + Sync> {
     })
 }
 
-/// "查询当前 BootNext"动作：失败时返回 None（菜单信息行容错展示）。
+/// "查询当前 BootNext"动作：失败时记录告警并返回 None（菜单信息行容错展示）。
 fn make_current_next(mgr: SharedManager) -> Arc<dyn Fn() -> Option<BootId> + Send + Sync> {
-    Arc::new(move || mgr.boot_next().ok().flatten())
+    Arc::new(move || match mgr.boot_next() {
+        Ok(next) => next,
+        Err(e) => {
+            log::warn!("读取 BootNext 失败（忽略）：{e}");
+            None
+        }
+    })
 }
 
 /// Linux 托盘动作：通过 `janus-privilege` 经 pkexec 以 root 身份调用自身的 `_apply` helper。

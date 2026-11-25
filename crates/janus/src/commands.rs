@@ -36,8 +36,15 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
             let mut entries = list_entries_maybe_elevate(cli, &args, mgr.as_ref())?;
             let (settings, _) = Settings::load_from_default_location();
             settings.apply(&mut entries, cli.all);
-            // BootNext 读取失败只影响标记展示，不中断列表输出
-            print_entries(&entries, mgr.boot_next().unwrap_or(None), cli.json);
+            // BootNext 读取失败只影响标记展示，不中断列表输出，但需记录告警便于排查损坏数据
+            let boot_next = match mgr.boot_next() {
+                Ok(next) => next,
+                Err(e) => {
+                    log::warn!("读取 BootNext 失败（忽略）：{e}");
+                    None
+                }
+            };
+            print_entries(&entries, boot_next, cli.json);
         }
 
         Some(Command::Next { target }) => {
