@@ -21,4 +21,3 @@ tray-icon = { workspace = true, features = ["ksni"] }
 [target.'cfg(target_os = "windows")'.dependencies]
 tray-icon = { workspace = true, features = ["muda-common-controls-v6"] }
 tao = { workspace = true }
-windows = { workspace = true, features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }

@@ -8,7 +8,6 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-janus-core = { workspace = true }
 shipup = { workspace = true, default-features = false, features = [
     "blocking",
     "archive",

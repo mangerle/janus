@@ -2290,14 +2290,12 @@ dependencies = [
  "log",
  "tao",
  "tray-icon",
- "windows",
 ]
 
 [[package]]
 name = "janus-updater"
 version = "0.1.0"
 dependencies = [
- "janus-core",
  "shipup",
  "tempfile",
  "thiserror 2.0.21",
