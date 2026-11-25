@@ -346,7 +346,7 @@ impl SettingsApp {
                     } else if dirty {
                         "有未保存的更改（Ctrl+S 保存 · Esc 取消）"
                     } else {
-                        "修改仅影响本机显示，不写固件"
+                        "修改仅影响本机显示与自启设置，不写固件"
                     };
                     let hint_width = (ui.available_width() - 200.0).max(120.0);
                     ui.add_sized(

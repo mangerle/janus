@@ -130,7 +130,7 @@ mod linux {
 
     fn render_desktop_entry(exe: &Path) -> String {
         let exec = escape_exec_arg(exe);
-        let try_exec = exe.to_string_lossy();
+        // 不写入 TryExec：XDG 规范中 TryExec 不支持引号包裹含空格路径，省略可避免误判失效
         format!(
             "[Desktop Entry]\n\
              Type=Application\n\
@@ -139,7 +139,6 @@ mod linux {
              GenericName=UEFI Boot Switcher\n\
              Comment=写入 UEFI BootNext 并重启，一键进入另一个系统\n\
              Exec={exec} tray\n\
-             TryExec={try_exec}\n\
              Icon=com.github.mangerle.janus\n\
              Terminal=false\n\
              X-GNOME-Autostart-enabled=true\n"
