@@ -90,14 +90,15 @@ pub(crate) fn row_ui(
     let mut prepared = row_frame.begin(ui);
     {
         let ui = &mut prepared.content_ui;
-        ui.scope(|ui| {
-            if !row.visible {
-                ui.multiply_opacity(0.60);
-            }
-            ui.horizontal(|ui| {
-                let switch = toggle_switch(ui, &mut row.visible);
-                switch.on_hover_text("关闭后将从托盘与 CLI 列表中隐藏");
+        ui.horizontal(|ui| {
+            // 开关始终保持全不透明，确保关闭状态下轨道与滑块依然清晰可辨
+            let switch = toggle_switch(ui, &mut row.visible);
+            switch.on_hover_text("关闭后将从托盘与 CLI 列表中隐藏");
 
+            ui.scope(|ui| {
+                if !row.visible {
+                    ui.multiply_opacity(0.65);
+                }
                 row_id_badge(ui, row.id);
                 row_name_block(ui, row, name_block_width);
                 row_alias_input(ui, &mut row.display_name, field_width);
@@ -236,26 +237,37 @@ fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
         rect.left_top() + egui::vec2(2.0, 6.0),
         egui::vec2(40.0, 20.0),
     );
-    let off = ui.visuals().widgets.inactive.bg_fill;
+    let off = if ui.visuals().dark_mode {
+        egui::Color32::from_rgb(0x28, 0x35, 0x4A)
+    } else {
+        egui::Color32::from_rgb(0xCB, 0xD5, 0xE1)
+    };
     let accent = ui.visuals().selection.bg_fill;
     let track_color = lerp_color(off, accent, t);
     ui.painter().rect_filled(track, 10, track_color);
-    if response.hovered() || response.has_focus() {
-        let color = if response.has_focus() {
-            accent
-        } else {
-            ui.visuals().widgets.noninteractive.bg_stroke.color
-        };
-        ui.painter().rect_stroke(
-            track.expand(2.0),
-            12,
-            egui::Stroke::new(1.0, color),
-            egui::StrokeKind::Outside,
-        );
-    }
+    let outline_color = if response.has_focus() {
+        accent
+    } else if response.hovered() {
+        ui.visuals().widgets.hovered.bg_stroke.color
+    } else {
+        ui.visuals().widgets.noninteractive.bg_stroke.color
+    };
+    ui.painter().rect_stroke(
+        track,
+        10,
+        egui::Stroke::new(1.0, outline_color),
+        egui::StrokeKind::Inside,
+    );
     let knob_x = egui::lerp((track.left() + 2.0)..=(track.right() - 18.0), t);
     let knob = egui::pos2(knob_x + 8.0, track.center().y);
     ui.painter().circle_filled(knob, 8.0, egui::Color32::WHITE);
+    if !ui.visuals().dark_mode {
+        ui.painter().circle_stroke(
+            knob,
+            8.0,
+            egui::Stroke::new(0.8, egui::Color32::from_black_alpha(32)),
+        );
+    }
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 

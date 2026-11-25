@@ -30,9 +30,7 @@ use widgets::{
     alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, SettingsRow,
 };
 
-/// 标题栏小 Logo（32x32 RGBA）与窗口/Dock 图标（128x128 RGBA）。
-const ICON_RGBA: &[u8] = include_bytes!("../../../janus-tray/assets/icon-32.rgba");
-const ICON_DIM: u32 = 32;
+/// 窗口/Dock 与标题栏共享的 128x128 RGBA 高清图标。
 const WINDOW_ICON_RGBA: &[u8] = include_bytes!("../../../janus-tray/assets/icon-128.rgba");
 const WINDOW_ICON_DIM: u32 = 128;
 
@@ -138,7 +136,10 @@ impl SettingsApp {
             .collect();
         let logo = ctx.load_texture(
             "janus-logo",
-            egui::ColorImage::from_rgba_unmultiplied([ICON_DIM as usize; 2], ICON_RGBA),
+            egui::ColorImage::from_rgba_unmultiplied(
+                [WINDOW_ICON_DIM as usize; 2],
+                WINDOW_ICON_RGBA,
+            ),
             egui::TextureOptions::LINEAR,
         );
         Self {
