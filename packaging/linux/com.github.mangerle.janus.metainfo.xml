@@ -34,6 +34,11 @@
   </provides>
 
   <releases>
+    <release version="0.3.0" date="2026-11-25">
+      <description>
+        <p>新增跨平台开机自启（CLI 与设置窗口开关），进一步优化代码结构与错误可观测性。</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-11-25">
       <description>
         <p>设置界面视觉与交互升级，托盘按需刷新与性能优化，核心与平台模块重构。</p>
