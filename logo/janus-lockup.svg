@@ -1,45 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 548 200">
   <!-- 由 logo/gen-lockup.py 生成：字标为 DejaVu Sans 轮廓路径，勿手改 -->
   <g transform="translate(8,6) scale(0.734)">
-    <rect x="16" y="16" width="224" height="224" rx="56" fill="#1B2130"/>
-    <path d="M29.5 154.4 A102 102 0 0 1 84.9 35.6 L89.1 44.6 A92 92 0 0 0 39.1 151.8 Z" fill="#3E8EF0"/>
-    <path d="M106.6 25.5 L89.5 45.6 L80.3 25.7 Z" fill="#3E8EF0"/>
-    <path d="M226.5 101.6 A102 102 0 0 1 171.1 220.4 L166.9 211.4 A92 92 0 0 0 216.9 104.2 Z" fill="#E95420"/>
-    <path d="M149.4 230.6 L166.5 210.4 L175.7 230.4 Z" fill="#E95420"/>
-    <path d="M125 50.1 A78 78 0 0 0 125 205.9 Z" fill="#3E8EF0"/>
-    <path d="M131 50.1 A78 78 0 0 1 131 205.9 Z" fill="#E95420"/>
-    <path d="M125 50.1 A78 78 0 0 0 60 99 L125 128 Z" fill="#FFFFFF" opacity="0.10"/>
-    <path d="M131 205.9 A78 78 0 0 1 196 157 L131 128 Z" fill="#000000" opacity="0.12"/>
-    <g fill="#FFFFFF" opacity="0.97">
-      <rect x="66.5" y="104.5" width="22" height="22" rx="2.5"/>
-      <rect x="92.5" y="104.5" width="22" height="22" rx="2.5"/>
-      <rect x="66.5" y="130.5" width="22" height="22" rx="2.5"/>
-      <rect x="92.5" y="130.5" width="22" height="22" rx="2.5"/>
-    </g>
-    <g stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.97">
-      <path d="M173 102 A27 27 0 0 1 192.1 135"/>
-      <path d="M185.1 147.1 A27 27 0 0 1 146.9 147.1"/>
-      <path d="M139.9 135 A27 27 0 0 1 159 102"/>
-    </g>
-    <g fill="#FFFFFF" opacity="0.97">
-      <circle cx="166" cy="101" r="7"/>
-      <circle cx="189.4" cy="141.5" r="7"/>
-      <circle cx="142.6" cy="141.5" r="7"/>
-    </g>
-    <g fill="#C98A3E">
-      <circle cx="128" cy="128" r="25"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(45,128,128)"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(90,128,128)"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(135,128,128)"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(180,128,128)"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(225,128,128)"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(270,128,128)"/>
-      <rect x="121.5" y="96" width="13" height="64" rx="4.5" transform="rotate(315,128,128)"/>
-    </g>
-    <circle cx="128" cy="128" r="24.5" fill="none" stroke="#E8B877" stroke-opacity="0.35" stroke-width="2"/>
-    <circle cx="128" cy="128" r="10" fill="#1B2130"/>
-    <circle cx="128" cy="128" r="10" fill="none" stroke="#E8B877" stroke-opacity="0.45" stroke-width="2"/>
+<!-- Janus 现代几何双门徽标：对称双弧箭翼象征双系统切换，中央圆角菱形门轴代表 UEFI 固件层 -->
+  <rect x="16" y="16" width="224" height="224" rx="58" fill="#111827"/>
+  <rect x="17.5" y="17.5" width="221" height="221" rx="56.5" fill="none" stroke="#7C8CFF" stroke-opacity="0.28" stroke-width="3"/>
+
+  <!-- 左侧门翼（品牌靛蓝） -->
+  <path d="M 77.1 184.5
+           A 76 76 0 0 1 104.5 55.7
+           L 100.2 48.0
+           Q 98.6 45.2 101.6 46.8
+           L 139.2 66.8
+           Q 142.2 68.3 139.5 70.4
+           L 117.2 92.6
+           Q 114.8 94.8 115.4 91.6
+           L 113.8 84.2
+           A 46 46 0 0 0 97.2 162.2
+           A 15 15 0 0 1 77.1 184.5 Z"
+        fill="#5468FF"/>
+
+  <!-- 右侧门翼（现代活力橙，中心对称 180 度） -->
+  <path d="M 178.9 71.5
+           A 76 76 0 0 1 151.5 200.3
+           L 155.8 208.0
+           Q 157.4 210.8 154.4 209.2
+           L 116.8 189.2
+           Q 113.8 187.7 116.5 185.6
+           L 138.8 163.4
+           Q 141.2 161.2 140.6 164.4
+           L 142.2 171.8
+           A 46 46 0 0 0 158.8 93.8
+           A 15 15 0 0 1 178.9 71.5 Z"
+        fill="#F97316"/>
+
+  <!-- 中央 UEFI 固件门轴核心（圆角菱形） -->
+  <path d="M 131 107 L 149 125 Q 152 128 149 131 L 131 149 Q 128 152 125 149 L 107 131 Q 104 128 107 125 L 125 107 Q 128 104 131 107 Z"
+        fill="#F8FAFC"/>
+  <circle cx="128" cy="128" r="8" fill="#111827"/>
   </g>
   <g transform="translate(214,104)" fill="#171C26">
       <g transform="translate(0.00,0) scale(0.035156,-0.035156)"><path d="M188 1493H573V145Q573 -134 421.5 -272.0Q270 -410 -37 -410H-115V-119H-55Q65 -119 126.5 -52.0Q188 15 188 145Z"/></g>
