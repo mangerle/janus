@@ -16,6 +16,12 @@ use std::sync::Arc;
 
 use janus_core::{BootEntry, BootId, Result};
 
+/// 应用高清图标（128x128 RGBA 字节，编译期嵌入），供托盘与设置窗口共享，
+/// 避免上层 crate 通过相对路径穿透本 crate 内部目录。
+pub const APP_ICON_128_RGBA: &[u8] = include_bytes!("../assets/icon-128.rgba");
+/// [`APP_ICON_128_RGBA`] 的边长（像素）。
+pub const APP_ICON_128_DIM: u32 = 128;
+
 /// 托盘动作回调集合（由上层提供）。
 pub struct TrayActions {
     /// 确认对话框；返回 `false` 取消。Linux 上通常直接返回 `true`——

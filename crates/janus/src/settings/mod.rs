@@ -30,10 +30,6 @@ use widgets::{
     alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, SettingsRow,
 };
 
-/// 窗口/Dock 与标题栏共享的 128x128 RGBA 高清图标。
-const WINDOW_ICON_RGBA: &[u8] = include_bytes!("../../../janus-tray/assets/icon-128.rgba");
-const WINDOW_ICON_DIM: u32 = 128;
-
 /// 打开设置窗口并阻塞到窗口关闭；保存成功后写回配置文件。
 ///
 /// `read_only` 为 true（dry-run）时禁用保存与自更新，不产生任何磁盘副作用。
@@ -55,9 +51,9 @@ pub(crate) fn run_settings_window(
     };
     let config_path = config_path.to_path_buf();
     let icon = egui::IconData {
-        rgba: WINDOW_ICON_RGBA.to_vec(),
-        width: WINDOW_ICON_DIM,
-        height: WINDOW_ICON_DIM,
+        rgba: janus_tray::APP_ICON_128_RGBA.to_vec(),
+        width: janus_tray::APP_ICON_128_DIM,
+        height: janus_tray::APP_ICON_128_DIM,
     };
 
     let options = eframe::NativeOptions {
@@ -137,8 +133,8 @@ impl SettingsApp {
         let logo = ctx.load_texture(
             "janus-logo",
             egui::ColorImage::from_rgba_unmultiplied(
-                [WINDOW_ICON_DIM as usize; 2],
-                WINDOW_ICON_RGBA,
+                [janus_tray::APP_ICON_128_DIM as usize; 2],
+                janus_tray::APP_ICON_128_RGBA,
             ),
             egui::TextureOptions::LINEAR,
         );
