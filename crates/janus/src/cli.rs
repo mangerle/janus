@@ -32,6 +32,9 @@ pub(crate) struct Cli {
     pub(crate) command: Option<Command>,
 }
 
+/// 内部特权 helper 子命令名称，供托盘提权与 clap 定义共用，防止两边脱节。
+pub(crate) const APPLY_SUBCOMMAND: &str = "_apply";
+
 #[derive(Subcommand)]
 pub(crate) enum Command {
     /// 列出 UEFI 启动项（按 BootOrder 顺序）
@@ -73,7 +76,7 @@ pub(crate) enum Command {
     },
 
     /// 内部命令：特权 helper（由 pkexec/runas 提权后调用），勿手动执行
-    #[command(hide = true)]
+    #[command(name = APPLY_SUBCOMMAND, hide = true)]
     Apply {
         /// "clear" 或启动项编号/名称子串
         target: String,
@@ -119,5 +122,15 @@ mod tests {
     fn all_flag_is_global_after_subcommand() {
         let cli = Cli::try_parse_from(["janus", "list", "--all"]).expect("--all 应解析成功");
         assert!(cli.all);
+    }
+
+    #[test]
+    fn apply_subcommand_matches_shared_constant() {
+        let cli = Cli::try_parse_from(["janus", super::APPLY_SUBCOMMAND, "0001", "--reboot"])
+            .expect("_apply 内部子命令应解析成功");
+        assert!(matches!(
+            cli.command,
+            Some(Command::Apply { ref target, reboot: true }) if target == "0001"
+        ));
     }
 }

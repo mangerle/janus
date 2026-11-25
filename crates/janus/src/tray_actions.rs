@@ -18,6 +18,8 @@ use janus_core::{BootEntry, BootId, BootManager, Result};
 use janus_core::JanusError;
 
 use crate::cli::Cli;
+#[cfg(target_os = "linux")]
+use crate::cli::APPLY_SUBCOMMAND;
 use crate::commands::do_reboot;
 #[cfg(target_os = "windows")]
 use crate::commands::require_elevated;
@@ -284,7 +286,7 @@ fn pkexec_apply(target: &str, reboot: bool) -> Result<()> {
     let exe = std::env::current_exe()
         .map_err(|e| JanusError::Elevation(format!("无法定位可执行文件：{e}")))?;
     let mut cmd = Command::new("pkexec");
-    cmd.arg(&exe).arg("_apply").arg(target);
+    cmd.arg(&exe).arg(APPLY_SUBCOMMAND).arg(target);
     if reboot {
         cmd.arg("--reboot");
     }
