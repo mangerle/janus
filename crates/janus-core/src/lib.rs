@@ -322,11 +322,13 @@ impl From<&str> for BootTarget {
 /// 名称匹配），这是文档化的有损取舍：编号是双系统场景最高频的输入。
 pub fn parse_boot_target(s: &str) -> BootTarget {
     let lower = s.trim().to_ascii_lowercase();
-    let hex = lower
-        .strip_prefix("boot")
-        .unwrap_or(&lower)
-        .strip_prefix("0x")
-        .unwrap_or(lower.strip_prefix("boot").unwrap_or(&lower));
+    let hex = if let Some(rest) = lower.strip_prefix("boot") {
+        rest
+    } else if let Some(rest) = lower.strip_prefix("0x") {
+        rest
+    } else {
+        lower.as_str()
+    };
     if !hex.is_empty() && hex.len() <= 4 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
         if let Ok(raw) = u16::from_str_radix(hex, 16) {
             return BootTarget::Id(BootId::new(raw));
@@ -544,8 +546,12 @@ mod tests {
             parse_boot_target("Windows"),
             BootTarget::Name("windows".into())
         );
-        // 超过 4 位十六进制字符不能是合法编号 -> 按名称
+        // 超过 4 位十六进制字符或混合前缀不能是合法编号 -> 按名称
         assert_eq!(parse_boot_target("12345"), BootTarget::Name("12345".into()));
+        assert_eq!(
+            parse_boot_target("boot0x1"),
+            BootTarget::Name("boot0x1".into())
+        );
         // From<&str> 便捷转换与函数等价
         assert_eq!(BootTarget::from("1"), parse_boot_target("1"));
     }
