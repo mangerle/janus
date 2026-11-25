@@ -173,9 +173,24 @@ impl SettingsApp {
         settings
     }
 
-    /// 当前界面编辑状态相对初始配置是否有未保存的变更。
+    /// 当前界面编辑状态相对初始配置是否有未保存的变更（零堆分配逐行比对）。
     fn is_dirty(&self) -> bool {
-        self.build_settings() != self.base
+        self.rows.iter().any(|row| {
+            let trimmed = row.display_name.trim();
+            let current_hidden = !row.visible;
+            let current_name = (!trimmed.is_empty()).then_some(trimmed);
+            match self.base.entry(row.id) {
+                Some(base) => {
+                    let base_name = base
+                        .name
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty());
+                    base.hidden != current_hidden || base_name != current_name
+                }
+                None => current_hidden || current_name.is_some(),
+            }
+        })
     }
 
     /// 按行状态更新基线设置并原子写盘；成功则关闭窗口，失败则保留窗口展示错误。
