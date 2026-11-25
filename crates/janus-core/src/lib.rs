@@ -13,6 +13,8 @@
 //! - 外部来的长度字段一律做饱和运算与越界校验：变量内容可能被固件写坏，
 //!   解析器绝不能因脏数据 panic。
 
+use std::collections::HashSet;
+
 pub mod error;
 mod mock;
 
@@ -289,6 +291,47 @@ pub fn parse_boot_target(s: &str) -> BootTarget {
         }
     }
     BootTarget::Name(lower)
+}
+
+/// 按 `BootOrder` 顺序列出并解析所有启动项；去重、缺失或无法解析的条目静默跳过。
+///
+/// # 设计原理（Why）
+/// 将“读 BootOrder → 去重 → 逐项读 BootXXXX → 解析 EFI_LOAD_OPTION”这一
+/// 平台无关逻辑收敛到核心库，Linux（efivarfs）与 Windows（固件 API）只需
+/// 提供各自的变量读取回调，杜绝两处实现漂移。
+///
+/// # Errors
+/// 找不到 `BootOrder` 变量时返回 [`JanusError::NotUefiSystem`]；底层变量
+/// 读取失败时透传对应 [`JanusError`]。
+pub fn collect_boot_entries<F>(mut read_var: F) -> Result<Vec<BootEntry>>
+where
+    F: FnMut(&str) -> Result<Option<Vec<u8>>>,
+{
+    let Some(order_data) = read_var("BootOrder")? else {
+        return Err(JanusError::NotUefiSystem(
+            "未找到 BootOrder 变量（系统可能以 BIOS/Legacy 模式启动，或权限不足）".into(),
+        ));
+    };
+    let order = parse_boot_order(&order_data);
+    let mut entries = Vec::with_capacity(order.len());
+    let mut seen = HashSet::with_capacity(order.len());
+    for id in order {
+        if !seen.insert(id) {
+            continue;
+        }
+        let Some(data) = read_var(&boot_var_name(id))? else {
+            continue; // BootOrder 引用了不存在的变量
+        };
+        let Ok(opt) = parse_load_option(&data) else {
+            continue; // 无法解析（如固件内部条目）
+        };
+        entries.push(BootEntry {
+            id,
+            name: opt.description,
+            active: opt.attributes & LOAD_OPTION_ACTIVE != 0,
+        });
+    }
+    Ok(entries)
 }
 
 /// 在启动项列表中解析目标：编号精确匹配；名称不区分大小写的子串匹配。

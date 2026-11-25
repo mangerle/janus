@@ -32,9 +32,8 @@ mod imp {
     };
 
     use janus_core::{
-        boot_var_name, encode_boot_next, parse_boot_next, parse_boot_order, parse_load_option,
-        BootEntry, BootId, BootManager, JanusError, Result, EFI_VARIABLE_GUID_BRACED,
-        LOAD_OPTION_ACTIVE,
+        collect_boot_entries, encode_boot_next, parse_boot_next, BootEntry, BootId, BootManager,
+        JanusError, Result, EFI_VARIABLE_GUID_BRACED,
     };
 
     /// 基于 Win32 固件环境变量 API 的启动管理器。
@@ -160,32 +159,7 @@ mod imp {
 
     impl BootManager for WindowsBootManager {
         fn list_entries(&self) -> Result<Vec<BootEntry>> {
-            let Some(order_data) = get_var("BootOrder")? else {
-                return Err(JanusError::NotUefiSystem(
-                    "读不到 BootOrder（系统可能以 BIOS/Legacy 模式启动，或权限不足）".into(),
-                ));
-            };
-            let order = parse_boot_order(&order_data);
-
-            let mut entries = Vec::with_capacity(order.len());
-            let mut seen = std::collections::HashSet::with_capacity(order.len());
-            for id in order {
-                if !seen.insert(id) {
-                    continue;
-                }
-                let Some(data) = get_var(&boot_var_name(id))? else {
-                    continue; // BootOrder 引用了不存在的变量
-                };
-                let Ok(opt) = parse_load_option(&data) else {
-                    continue;
-                };
-                entries.push(BootEntry {
-                    id,
-                    name: opt.description,
-                    active: opt.attributes & LOAD_OPTION_ACTIVE != 0,
-                });
-            }
-            Ok(entries)
+            collect_boot_entries(get_var)
         }
 
         fn boot_next(&self) -> Result<Option<BootId>> {

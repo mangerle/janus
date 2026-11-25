@@ -22,9 +22,8 @@ mod imp {
     use std::path::{Path, PathBuf};
 
     use janus_core::{
-        boot_var_name, encode_boot_next, parse_boot_next, parse_boot_order, parse_load_option,
-        BootEntry, BootId, BootManager, JanusError, Result, EFI_VARIABLE_BOOT_ACCESS,
-        EFI_VARIABLE_GUID, LOAD_OPTION_ACTIVE,
+        collect_boot_entries, encode_boot_next, parse_boot_next, BootEntry, BootId, BootManager,
+        JanusError, Result, EFI_VARIABLE_BOOT_ACCESS, EFI_VARIABLE_GUID,
     };
 
     /// 运行系统的 efivarfs 挂载点。
@@ -148,34 +147,7 @@ mod imp {
         /// 按 BootOrder 顺序列出启动项；缺失或无法解析的条目静默跳过。
         fn list_entries_ordered(&self) -> Result<Vec<BootEntry>> {
             self.check_dir()?;
-            let order = match self.read_var("BootOrder")? {
-                Some(data) => parse_boot_order(&data),
-                None => {
-                    return Err(JanusError::NotUefiSystem(
-                        "efivarfs 中没有 BootOrder 变量".into(),
-                    ))
-                }
-            };
-
-            let mut entries = Vec::with_capacity(order.len());
-            let mut seen = std::collections::HashSet::with_capacity(order.len());
-            for id in order {
-                if !seen.insert(id) {
-                    continue;
-                }
-                let Some(data) = self.read_var(&boot_var_name(id))? else {
-                    continue; // BootOrder 引用了不存在的变量
-                };
-                let Ok(opt) = parse_load_option(&data) else {
-                    continue; // 无法解析（如固件内部条目）
-                };
-                entries.push(BootEntry {
-                    id,
-                    name: opt.description,
-                    active: opt.attributes & LOAD_OPTION_ACTIVE != 0,
-                });
-            }
-            Ok(entries)
+            collect_boot_entries(|name| self.read_var(name))
         }
     }
 
@@ -226,6 +198,7 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use janus_core::LOAD_OPTION_ACTIVE;
         use std::fs;
 
         /// 按 EFI_LOAD_OPTION 布局构造 BootXXXX 数据（测试辅助）。
