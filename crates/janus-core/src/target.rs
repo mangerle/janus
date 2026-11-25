@@ -52,6 +52,25 @@ pub fn parse_boot_target(s: &str) -> BootTarget {
     BootTarget::Name(lower)
 }
 
+/// 判断 `haystack` 是否包含 `needle_lower`（不区分大小写）。
+///
+/// 对纯 ASCII 文本走字节窗口比较，零堆分配；包含非 ASCII 字符时回退到
+/// Unicode 小写转换以正确处理多语言别名。
+pub fn contains_ignore_case(haystack: &str, needle_lower: &str) -> bool {
+    if needle_lower.is_empty() {
+        return true;
+    }
+    if haystack.is_ascii() && needle_lower.is_ascii() {
+        return haystack
+            .as_bytes()
+            .windows(needle_lower.len())
+            .any(|window| window.eq_ignore_ascii_case(needle_lower.as_bytes()));
+    }
+    haystack
+        .to_lowercase()
+        .contains(&needle_lower.to_lowercase())
+}
+
 /// 在启动项列表中解析目标：编号精确匹配；名称不区分大小写的子串匹配。
 ///
 /// # Errors
@@ -65,16 +84,12 @@ pub fn resolve_target<'a>(entries: &'a [BootEntry], target: &BootTarget) -> Resu
             .ok_or_else(|| JanusError::EntryNotFound(id.to_string())),
         BootTarget::Name(name) => entries
             .iter()
-            .find(|e| e.name.to_lowercase().contains(name.as_str()))
+            .find(|e| contains_ignore_case(&e.name, name))
             .ok_or_else(|| JanusError::EntryNotFound(name.clone())),
         BootTarget::IdOrName { id, name } => entries
             .iter()
             .find(|e| e.id == *id)
-            .or_else(|| {
-                entries
-                    .iter()
-                    .find(|e| e.name.to_lowercase().contains(name.as_str()))
-            })
+            .or_else(|| entries.iter().find(|e| contains_ignore_case(&e.name, name)))
             .ok_or_else(|| JanusError::EntryNotFound(name.clone())),
     }
 }

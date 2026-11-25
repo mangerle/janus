@@ -15,7 +15,8 @@ use crate::settings::run_settings_window;
 use crate::tray_actions::run_tray;
 use anyhow::Context;
 use janus_core::{
-    parse_boot_target, resolve_target, BootEntry, BootManager, JanusError, MockManager,
+    contains_ignore_case, parse_boot_target, resolve_target, BootEntry, BootManager, JanusError,
+    MockManager,
 };
 
 /// 主分发：按子命令路由到具体实现。
@@ -144,7 +145,7 @@ fn find_by_display_name<'a>(
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .unwrap_or(&e.name);
-        display_name.to_lowercase().contains(needle)
+        contains_ignore_case(display_name, needle)
     })
 }
 
