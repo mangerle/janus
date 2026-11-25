@@ -1,8 +1,8 @@
 name: Release
 
 # Janus 发布流水线（shipup 签名自更新通道）：
-# - Linux: x86_64 tar.gz 归档
-# - Windows: x64 zip 归档
+# - Linux: x86_64 .deb 安装包（同时构建 tar.gz 与 AppImage 挂载到 Release）
+# - Windows: x64 NSIS 安装包（同时构建便携 zip 挂载到 Release）
 # 自更新清单 latest.json 由 shipup-cli 生成并做 Ed25519 签名（Secret:
 # SHIPUP_PRIVATE_KEY，对应公钥已内嵌于 crates/janus-updater）。客户端
 # `janus update` 会先验清单签名，再校验包 SHA-256 与包签名后才替换二进制。
@@ -294,10 +294,8 @@ jobs:
               --notes "$NOTES" "$@"
           }
 
-          # 便携归档：archive 类型，客户端自更新直接替换二进制
-          sign_package "release-files/janus_${VERSION}_linux_amd64.tar.gz" "x86_64-unknown-linux-gnu" archive --executable-path janus
-          sign_package "release-files/janus_${VERSION}_windows_x64.zip" "x86_64-pc-windows-msvc" archive --executable-path janus.exe
-          # 安装包：installer 类型；deb 安装需要 root（对应客户端 --require-elevation）
+          # 安装包：installer 类型（同一 target 在 latest.json 只能对应一个产物）
+          # deb 安装需要 root（对应客户端 --require-elevation）；tar.gz / AppImage / zip 仍作为 Release 附件发布
           sign_package "release-files/janus_${VERSION}_linux_amd64.deb" "x86_64-unknown-linux-gnu" installer --require-elevation --wait-for-exit
           sign_package "release-files/janus_${VERSION}_windows_x64_setup.exe" "x86_64-pc-windows-msvc" installer --wait-for-exit
 
@@ -325,9 +323,7 @@ jobs:
               --target "$target" \
               --public-key "$EMBEDDED_KEY"
           }
-          verify_package "release-files/janus_${VERSION}_linux_amd64.tar.gz" "x86_64-unknown-linux-gnu"
           verify_package "release-files/janus_${VERSION}_linux_amd64.deb" "x86_64-unknown-linux-gnu"
-          verify_package "release-files/janus_${VERSION}_windows_x64.zip" "x86_64-pc-windows-msvc"
           verify_package "release-files/janus_${VERSION}_windows_x64_setup.exe" "x86_64-pc-windows-msvc"
 
       - name: 发布 GitHub Release 并挂载全部产物
