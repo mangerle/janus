@@ -19,11 +19,7 @@ mod cli;
 mod commands;
 mod config;
 mod output;
-mod settings_chrome;
-mod settings_theme;
-mod settings_ui;
-mod settings_update;
-mod settings_widgets;
+mod settings;
 mod tray_actions;
 #[cfg(target_os = "windows")]
 mod windows_console;

@@ -11,6 +11,11 @@
 //! - 使用 `system_fonts` 按需加载系统中文字形，避免把数 MB 的 CJK 字体
 //!   打进二进制；代价是极端精简的系统若无中文字体，界面会显示替换符。
 
+mod chrome;
+mod theme;
+mod update;
+mod widgets;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -19,11 +24,11 @@ use eframe::egui;
 use janus_core::{BootEntry, BootManager};
 
 use crate::config::{EntrySettings, Settings};
-use crate::settings_update::UpdaterUi;
-use crate::settings_widgets::{count_pill, panel_frame, primary_button, row_ui, SettingsRow};
+use update::UpdaterUi;
+use widgets::{count_pill, panel_frame, primary_button, row_ui, SettingsRow};
 
 /// 托盘图标同时用作窗口图标与标题 Logo（与托盘同源，32x32 RGBA）。
-const ICON_RGBA: &[u8] = include_bytes!("../../janus-tray/assets/icon-32.rgba");
+const ICON_RGBA: &[u8] = include_bytes!("../../../janus-tray/assets/icon-32.rgba");
 const ICON_DIM: u32 = 32;
 
 /// 打开设置窗口并阻塞到窗口关闭；保存成功后写回配置文件。
@@ -66,9 +71,8 @@ pub(crate) fn run_settings_window(
         options,
         Box::new(move |cc| {
             // Linux 上 winit 的系统主题恒为 None，需自行探测后显式设置
-            cc.egui_ctx
-                .set_theme(crate::settings_theme::system_theme_preference());
-            crate::settings_theme::apply_theme(&cc.egui_ctx);
+            cc.egui_ctx.set_theme(theme::system_theme_preference());
+            theme::apply_theme(&cc.egui_ctx);
             Ok(Box::new(SettingsApp::new(
                 entries,
                 &settings,
@@ -308,7 +312,7 @@ impl eframe::App for SettingsApp {
         let ctx = ui.ctx().clone();
         let window_rect = ui.max_rect();
         // 面板顺序：顶部标题栏、底部操作栏固定，中央内容独立滚动
-        crate::settings_chrome::titlebar_ui(ui, &ctx, &self.logo);
+        chrome::titlebar_ui(ui, &ctx, &self.logo);
         self.footer_ui(ui, &ctx);
         let panel_fill = ui.visuals().panel_fill;
         egui::CentralPanel::default()
@@ -325,7 +329,7 @@ impl eframe::App for SettingsApp {
                     });
             });
         let maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
-        crate::settings_chrome::resize_edges(ui, &ctx, window_rect, maximized);
+        chrome::resize_edges(ui, &ctx, window_rect, maximized);
         // 无边框窗口补一圈细边框，避免与深色桌面融为一体
         let border = ui.visuals().widgets.noninteractive.bg_stroke;
         ui.painter().rect_stroke(

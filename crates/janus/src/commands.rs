@@ -11,7 +11,7 @@ use std::sync::Arc;
 use crate::cli::{Cli, Command};
 use crate::config::Settings;
 use crate::output::{print_entries, progress_printer};
-use crate::settings_ui::run_settings_window;
+use crate::settings::run_settings_window;
 use crate::tray_actions::run_tray;
 use anyhow::Context;
 use janus_core::{
