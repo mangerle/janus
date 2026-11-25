@@ -81,10 +81,12 @@ pub(crate) const ID_REBOOT: &str = "janus:reboot";
 pub(crate) const ID_SETTINGS: &str = "janus:settings";
 pub(crate) const ID_QUIT: &str = "janus:quit";
 
-/// 菜单事件处理结果（平台循环据此决定退出/开设置窗口）。
+/// 菜单事件处理结果（平台循环据此决定是否刷新菜单、退出或开设置窗口）。
 pub(crate) enum MenuOutcome {
-    /// 普通动作，菜单保持运行
+    /// 普通动作或未变更状态，无需重建菜单
     Continue,
+    /// 状态已变更（如设置或清除了 BootNext），需要重建菜单
+    Refresh,
     /// 用户点击"退出"
     Quit,
     /// 用户点击"设置…"，需在后台线程打开设置窗口

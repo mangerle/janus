@@ -10,7 +10,7 @@ use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tray_icon::menu::MenuEvent;
 
 use crate::menu::{build_tray, handle_menu_event, refresh, refresh_entries, spawn_settings};
-use crate::{TrayActions, ID_QUIT, ID_SETTINGS};
+use crate::{MenuOutcome, TrayActions, ID_QUIT, ID_SETTINGS};
 
 /// tao 事件循环的用户事件：菜单动作、动作完成刷新或设置保存后的重载通知。
 #[derive(Clone, Debug)]
@@ -81,8 +81,12 @@ pub(crate) fn run(entries: Vec<BootEntry>, actions: TrayActions) -> Result<()> {
                     if let Err(e) = std::thread::Builder::new()
                         .name("janus-tray-action".into())
                         .spawn(move || {
-                            let _ = handle_menu_event(&id, &entries_snapshot, &actions_ref);
-                            let _ = done_proxy.send_event(UserEvent::Refresh);
+                            if matches!(
+                                handle_menu_event(&id, &entries_snapshot, &actions_ref),
+                                MenuOutcome::Refresh
+                            ) {
+                                let _ = done_proxy.send_event(UserEvent::Refresh);
+                            }
                         })
                     {
                         log::error!("创建托盘动作线程失败：{e}");

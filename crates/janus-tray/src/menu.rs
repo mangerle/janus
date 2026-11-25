@@ -122,6 +122,8 @@ pub(crate) fn handle_menu_event(
             if (actions.confirm)(&format!("确定要重启进入「{name}」吗？")) {
                 if let Err(e) = (actions.switch_and_reboot)(id) {
                     log::error!("重启进入失败：{e}");
+                } else {
+                    return MenuOutcome::Refresh;
                 }
             }
         }
@@ -130,8 +132,11 @@ pub(crate) fn handle_menu_event(
             let id = BootId::new(raw);
             if let Err(e) = (actions.set_next)(id) {
                 log::error!("设置下次启动失败：{e}");
-            } else if let Some(e) = entries.iter().find(|e| e.id == id) {
-                log::info!("已设置下次启动：{}（{}）", e.id, e.name);
+            } else {
+                if let Some(e) = entries.iter().find(|e| e.id == id) {
+                    log::info!("已设置下次启动：{}（{}）", e.id, e.name);
+                }
+                return MenuOutcome::Refresh;
             }
         }
     } else if id == ID_CLEAR {
@@ -139,6 +144,7 @@ pub(crate) fn handle_menu_event(
             log::error!("清除 BootNext 失败：{e}");
         } else {
             log::info!("已清除 BootNext");
+            return MenuOutcome::Refresh;
         }
     } else if id == ID_REBOOT {
         if let Err(e) = (actions.reboot)() {
@@ -272,15 +278,15 @@ mod tests {
 
         assert!(matches!(
             handle_menu_event("boot:0001", &entries, &actions),
-            MenuOutcome::Continue
+            MenuOutcome::Refresh
         ));
         assert!(matches!(
             handle_menu_event("next:0002", &entries, &actions),
-            MenuOutcome::Continue
+            MenuOutcome::Refresh
         ));
         assert!(matches!(
             handle_menu_event(ID_CLEAR, &entries, &actions),
-            MenuOutcome::Continue
+            MenuOutcome::Refresh
         ));
         assert!(matches!(
             handle_menu_event(ID_REBOOT, &entries, &actions),

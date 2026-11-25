@@ -28,10 +28,10 @@ pub(crate) fn run(entries: Vec<BootEntry>, actions: TrayActions) -> Result<()> {
                 match handle_menu_event(&id, &entries, &actions) {
                     MenuOutcome::Quit => break,
                     MenuOutcome::OpenSettings => spawn_settings(&actions, &notify_tx),
+                    // 仅在状态可能已变更时重建菜单，避免退出/打开设置等动作触发无效 D-Bus 刷新
+                    MenuOutcome::Refresh => refresh(&tray, &entries, &actions),
                     MenuOutcome::Continue => {}
                 }
-                // 每次动作后重建菜单，刷新"当前下次启动"信息项
-                refresh(&tray, &entries, &actions);
             }
             recv(notify_rx) -> _ => {
                 refresh_entries(&mut entries, &actions);
