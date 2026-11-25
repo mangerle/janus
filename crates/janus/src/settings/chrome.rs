@@ -21,7 +21,7 @@ pub(crate) fn titlebar_ui(
         .frame(
             egui::Frame::new()
                 .fill(ui.visuals().panel_fill)
-                .inner_margin(egui::Margin::symmetric(18, 12)),
+                .inner_margin(egui::Margin::symmetric(10, 6)),
         )
         .show(ui, |ui| {
             // 整条空白区域可拖动窗口；后添加的按钮在交互优先级上高于背景
@@ -101,7 +101,7 @@ enum WindowControl {
 
 /// 绘制一个单色窗口控制按钮（悬停显示背景，关闭按钮悬停为红色）。
 fn window_control(ui: &mut egui::Ui, kind: WindowControl) -> egui::Response {
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(38.0, 28.0), egui::Sense::click());
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(34.0, 26.0), egui::Sense::click());
     let hovered = response.hovered();
     let closing = kind == WindowControl::Close && hovered;
     let background = if closing {
