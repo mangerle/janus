@@ -134,18 +134,7 @@ mod win {
     pub(super) fn reexec_elevated_wait(exe: &str, args: &[String]) -> janus_core::Result<i32> {
         use janus_core::JanusError;
 
-        // 参数中含空格的加引号（如启动项名称）
-        let params = args
-            .iter()
-            .map(|a| {
-                if a.contains(' ') {
-                    format!("\"{a}\"")
-                } else {
-                    a.clone()
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
+        let params = super::join_windows_args(args);
         let exe_w = to_wide(exe);
         let params_w = to_wide(&params);
 
@@ -183,4 +172,76 @@ fn windows_is_elevated() -> bool {
 #[cfg(windows)]
 fn windows_reexec_elevated_wait(exe: &str, args: &[String]) -> Result<i32> {
     win::reexec_elevated_wait(exe, args)
+}
+
+/// 按 Win32 `CommandLineToArgvW` 规则转义并拼接命令行参数。
+#[cfg(any(windows, test))]
+fn join_windows_args(args: &[String]) -> String {
+    let mut out = String::new();
+    for (idx, arg) in args.iter().enumerate() {
+        if idx > 0 {
+            out.push(' ');
+        }
+        quote_windows_arg(arg, &mut out);
+    }
+    out
+}
+
+/// 按 Win32 `CommandLineToArgvW` 规则转义单个参数。
+#[cfg(any(windows, test))]
+fn quote_windows_arg(arg: &str, out: &mut String) {
+    let needs_quotes = arg.is_empty() || arg.chars().any(|c| matches!(c, ' ' | '\t' | '"'));
+    if !needs_quotes {
+        out.push_str(arg);
+        return;
+    }
+
+    out.push('"');
+    let mut backslashes = 0usize;
+    for ch in arg.chars() {
+        match ch {
+            '\\' => backslashes += 1,
+            '"' => {
+                // 双引号前的反斜杠需要双倍转义，再加一个反斜杠转义双引号本身
+                for _ in 0..(backslashes * 2 + 1) {
+                    out.push('\\');
+                }
+                out.push('"');
+                backslashes = 0;
+            }
+            _ => {
+                for _ in 0..backslashes {
+                    out.push('\\');
+                }
+                backslashes = 0;
+                out.push(ch);
+            }
+        }
+    }
+    // 闭合双引号前的末尾反斜杠也需要双倍转义
+    for _ in 0..(backslashes * 2) {
+        out.push('\\');
+    }
+    out.push('"');
+}
+
+#[cfg(test)]
+mod tests {
+    use super::join_windows_args;
+
+    #[test]
+    fn windows_arg_quoting_handles_spaces_quotes_and_backslashes() {
+        let args = vec![
+            "next".to_string(),
+            "Windows Boot Manager".to_string(),
+            "".to_string(),
+            r#"a"b"#.to_string(),
+            r"C:\path with space\".to_string(),
+            r#"foo\"bar"#.to_string(),
+        ];
+        assert_eq!(
+            join_windows_args(&args),
+            r#"next "Windows Boot Manager" "" "a\"b" "C:\path with space\\" "foo\\\"bar""#
+        );
+    }
 }
