@@ -25,11 +25,12 @@ use anyhow::Context;
 use eframe::egui;
 use janus_core::{BootEntry, BootManager};
 
+use crate::autostart;
 use crate::config::{EntrySettings, Settings};
 use update::UpdaterUi;
 use widgets::{
-    alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, SettingsRow,
-    ID_BADGE_WIDTH, SWITCH_WIDTH,
+    alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, toggle_switch,
+    SettingsRow, ID_BADGE_WIDTH, SWITCH_WIDTH,
 };
 
 /// 打开设置窗口并阻塞到窗口关闭；保存成功后写回配置文件。
@@ -44,12 +45,23 @@ pub(crate) fn run_settings_window(
     read_only: bool,
 ) -> anyhow::Result<()> {
     let entries = mgr.list_entries().context("读取启动项列表失败")?;
-    let (settings, warning) = match Settings::load(config_path) {
+    let (settings, mut warning) = match Settings::load(config_path) {
         Ok(settings) => (settings, None),
         Err(e) => (
             Settings::default(),
             Some(format!("读取现有设置失败，已使用默认值：{e:#}")),
         ),
+    };
+    let autostart_initial = match autostart::is_enabled() {
+        Ok(enabled) => enabled,
+        Err(e) => {
+            let msg = format!("读取开机自启状态失败：{e:#}");
+            warning = Some(match warning {
+                Some(prev) => format!("{prev}\n{msg}"),
+                None => msg,
+            });
+            false
+        }
     };
     let config_path = config_path.to_path_buf();
     let icon = egui::IconData {
@@ -81,6 +93,7 @@ pub(crate) fn run_settings_window(
                     settings: &settings,
                     config_path,
                     read_only,
+                    autostart_initial,
                     warning,
                 },
                 &cc.egui_ctx,
@@ -96,6 +109,7 @@ struct SettingsInit<'a> {
     settings: &'a Settings,
     config_path: PathBuf,
     read_only: bool,
+    autostart_initial: bool,
     warning: Option<String>,
 }
 
@@ -107,6 +121,10 @@ struct SettingsApp {
     base: Settings,
     config_path: PathBuf,
     read_only: bool,
+    /// 打开窗口时的系统开机自启状态
+    autostart_initial: bool,
+    /// 当前开关编辑状态
+    autostart_enabled: bool,
     /// 读取或保存错误提示；保存成功窗口关闭，无需成功提示
     error: Option<String>,
     /// 版本展示与自更新面板
@@ -145,6 +163,8 @@ impl SettingsApp {
             base: init.settings.clone(),
             config_path: init.config_path,
             read_only: init.read_only,
+            autostart_initial: init.autostart_initial,
+            autostart_enabled: init.autostart_initial,
             error: init.warning,
             updater: UpdaterUi::new(init.read_only),
             logo,
@@ -176,6 +196,9 @@ impl SettingsApp {
 
     /// 当前界面编辑状态相对初始配置是否有未保存的变更（零堆分配逐行比对）。
     fn is_dirty(&self) -> bool {
+        if self.autostart_enabled != self.autostart_initial {
+            return true;
+        }
         self.rows.iter().any(|row| {
             let trimmed = row.display_name.trim();
             let current_hidden = !row.visible;
@@ -194,13 +217,24 @@ impl SettingsApp {
         })
     }
 
-    /// 按行状态更新基线设置并原子写盘；成功则关闭窗口，失败则保留窗口展示错误。
+    /// 按行状态更新基线设置并原子写盘，同步应用开机自启开关；全部成功则关闭窗口。
     fn save(&mut self, ctx: &egui::Context) {
         let settings = self.build_settings();
-        match settings.save(&self.config_path) {
-            Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
-            Err(e) => self.error = Some(format!("保存设置失败：{e:#}")),
+        if settings != self.base {
+            if let Err(e) = settings.save(&self.config_path) {
+                self.error = Some(format!("保存设置失败：{e:#}"));
+                return;
+            }
+            self.base = settings;
         }
+        if self.autostart_enabled != self.autostart_initial {
+            if let Err(e) = autostart::set_enabled(self.autostart_enabled) {
+                self.error = Some(format!("设置开机自启失败：{e:#}"));
+                return;
+            }
+            self.autostart_initial = self.autostart_enabled;
+        }
+        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
     }
 
     /// 标题、启动项分区与“关于与更新”分区。
@@ -234,7 +268,34 @@ impl SettingsApp {
 
         self.list_panel_ui(ui);
         ui.add_space(14.0);
+        self.autostart_panel_ui(ui);
+        ui.add_space(14.0);
         self.about_panel_ui(ui, ctx);
+    }
+
+    /// 系统集成卡片：开机自动启动托盘开关。
+    fn autostart_panel_ui(&mut self, ui: &mut egui::Ui) {
+        panel_frame(ui).show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.add(egui::Label::new(
+                        egui::RichText::new("开机自动启动托盘").size(13.0).strong(),
+                    ));
+                    let desc = if cfg!(target_os = "windows") {
+                        "登录 Windows 时自动运行 Janus 托盘（启用 UAC 时将弹出提权确认）"
+                    } else {
+                        "登录桌面会话时自动运行 Janus 托盘（XDG Autostart）"
+                    };
+                    ui.add(egui::Label::new(
+                        egui::RichText::new(desc).size(11.0).weak(),
+                    ));
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    toggle_switch(ui, &mut self.autostart_enabled);
+                });
+            });
+        });
     }
 
     /// 启动项分区：标题、快捷“全部显示”按钮与条目列表。

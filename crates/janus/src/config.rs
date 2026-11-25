@@ -138,21 +138,28 @@ impl Settings {
     }
 }
 
+/// 按平台解析用户配置根目录（Linux 为 `$XDG_CONFIG_HOME` 或 `~/.config`，
+/// Windows 为 `%APPDATA%`）。
+#[cfg(target_os = "linux")]
+pub(crate) fn xdg_config_root() -> anyhow::Result<PathBuf> {
+    // XDG 规范要求绝对路径；相对值视为未设置，避免配置落到工作目录
+    if let Some(dir) = std::env::var_os("XDG_CONFIG_HOME") {
+        let dir = PathBuf::from(dir);
+        if dir.is_absolute() {
+            return Ok(dir);
+        }
+    }
+    let home = std::env::var_os("HOME")
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| anyhow!("无法确定用户主目录：HOME 未设置"))?;
+    Ok(PathBuf::from(home).join(".config"))
+}
+
 /// 按平台解析用户配置目录。
 fn config_dir() -> anyhow::Result<PathBuf> {
     #[cfg(target_os = "linux")]
     {
-        // XDG 规范要求绝对路径；相对值视为未设置，避免配置落到工作目录
-        if let Some(dir) = std::env::var_os("XDG_CONFIG_HOME") {
-            let dir = PathBuf::from(dir);
-            if dir.is_absolute() {
-                return Ok(dir.join("janus"));
-            }
-        }
-        let home = std::env::var_os("HOME")
-            .filter(|v| !v.is_empty())
-            .ok_or_else(|| anyhow!("无法确定用户主目录：HOME 未设置"))?;
-        Ok(PathBuf::from(home).join(".config").join("janus"))
+        Ok(xdg_config_root()?.join("janus"))
     }
     #[cfg(target_os = "windows")]
     {

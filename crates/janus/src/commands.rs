@@ -8,7 +8,8 @@
 
 use std::sync::Arc;
 
-use crate::cli::{Cli, Command};
+use crate::autostart;
+use crate::cli::{AutostartAction, Cli, Command};
 use crate::config::Settings;
 use crate::output::{print_entries, progress_printer};
 use crate::settings::run_settings_window;
@@ -69,6 +70,10 @@ pub(crate) fn run(cli: &Cli) -> anyhow::Result<()> {
             yes,
         }) => {
             run_update(manifest.as_deref(), *check, *yes)?;
+        }
+
+        Some(Command::Autostart { action }) => {
+            run_autostart(cli, *action)?;
         }
 
         Some(Command::Apply { target, reboot }) => {
@@ -188,6 +193,39 @@ fn run_update(manifest: Option<&str>, check_only: bool, assume_yes: bool) -> any
         "更新完成：v{} 已安装，下次运行 janus 即生效。",
         downloaded.version()
     );
+    Ok(())
+}
+
+/// `janus autostart`：查询、开启或关闭开机自启。
+fn run_autostart(cli: &Cli, action: Option<AutostartAction>) -> anyhow::Result<()> {
+    match action.unwrap_or(AutostartAction::Status) {
+        AutostartAction::Status => {
+            let enabled = autostart::is_enabled()?;
+            if cli.json {
+                println!("{}", serde_json::json!({ "enabled": enabled }));
+            } else if enabled {
+                println!("开机自启：已开启");
+            } else {
+                println!("开机自启：未开启");
+            }
+        }
+        AutostartAction::On => {
+            if cli.dry_run {
+                println!("[dry-run] 已模拟开启开机自启（未写入系统配置）。");
+            } else {
+                autostart::set_enabled(true)?;
+                println!("已开启开机自启（将在登录后自动启动托盘）。");
+            }
+        }
+        AutostartAction::Off => {
+            if cli.dry_run {
+                println!("[dry-run] 已模拟关闭开机自启（未修改系统配置）。");
+            } else {
+                autostart::set_enabled(false)?;
+                println!("已关闭开机自启。");
+            }
+        }
+    }
     Ok(())
 }
 

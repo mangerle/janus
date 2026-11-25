@@ -231,7 +231,7 @@ fn clear_icon_button(ui: &mut egui::Ui) -> egui::Response {
 }
 
 /// 自绘开关：44x32 交互区，轨道 40x20，开启时用品牌强调色。
-fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
+pub(crate) fn toggle_switch(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
     let (rect, mut response) =
         ui.allocate_exact_size(egui::vec2(SWITCH_WIDTH, 32.0), egui::Sense::click());
     if response.clicked() {

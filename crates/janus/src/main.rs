@@ -15,6 +15,7 @@
 // CLI 形态在 main 入口附加父终端控制台（见 windows_console）
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+mod autostart;
 mod cli;
 mod commands;
 mod config;

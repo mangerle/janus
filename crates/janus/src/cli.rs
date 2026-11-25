@@ -75,6 +75,13 @@ pub(crate) enum Command {
         yes: bool,
     },
 
+    /// 管理开机自启（默认查询当前状态）
+    Autostart {
+        /// 自启动作：on / off / status
+        #[command(subcommand)]
+        action: Option<AutostartAction>,
+    },
+
     /// 内部命令：特权 helper（由 pkexec/runas 提权后调用），勿手动执行
     #[command(name = APPLY_SUBCOMMAND, hide = true)]
     Apply {
@@ -84,6 +91,17 @@ pub(crate) enum Command {
         #[arg(long)]
         reboot: bool,
     },
+}
+
+/// `janus autostart` 子命令动作。
+#[derive(Subcommand, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AutostartAction {
+    /// 开启开机自启（登录后自动启动托盘）
+    On,
+    /// 关闭开机自启
+    Off,
+    /// 查看当前开机自启状态
+    Status,
 }
 
 #[cfg(test)]
@@ -131,6 +149,31 @@ mod tests {
         assert!(matches!(
             cli.command,
             Some(Command::Apply { ref target, reboot: true }) if target == "0001"
+        ));
+    }
+
+    #[test]
+    fn autostart_subcommand_parses() {
+        let status = Cli::try_parse_from(["janus", "autostart"]).expect("autostart 应解析成功");
+        assert!(matches!(
+            status.command,
+            Some(Command::Autostart { action: None })
+        ));
+        let on =
+            Cli::try_parse_from(["janus", "autostart", "on"]).expect("autostart on 应解析成功");
+        assert!(matches!(
+            on.command,
+            Some(Command::Autostart {
+                action: Some(super::AutostartAction::On)
+            })
+        ));
+        let off =
+            Cli::try_parse_from(["janus", "autostart", "off"]).expect("autostart off 应解析成功");
+        assert!(matches!(
+            off.command,
+            Some(Command::Autostart {
+                action: Some(super::AutostartAction::Off)
+            })
         ));
     }
 }
