@@ -20,6 +20,30 @@ pub use error::{JanusError, Result};
 pub use mock::MockManager;
 pub use target::*;
 
+/// Win32 `HANDLE` 的 RAII 守卫，供 Windows 后端与提权模块共用，
+/// 确保任何错误提前返回路径都自动释放内核句柄。
+#[cfg(target_os = "windows")]
+pub struct OwnedHandle(pub windows::Win32::Foundation::HANDLE);
+
+#[cfg(target_os = "windows")]
+impl OwnedHandle {
+    /// 获取内部原始句柄。
+    pub fn as_raw(&self) -> windows::Win32::Foundation::HANDLE {
+        self.0
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        if !self.0.is_invalid() {
+            unsafe {
+                let _ = windows::Win32::Foundation::CloseHandle(self.0);
+            }
+        }
+    }
+}
+
 /// 启动项编号（BootXXXX 的 XXXX 部分，4 位十六进制展示）。
 ///
 /// # 设计原理（Why）

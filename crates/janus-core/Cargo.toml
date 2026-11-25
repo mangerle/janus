@@ -13,3 +13,6 @@ serde = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_Foundation"] }

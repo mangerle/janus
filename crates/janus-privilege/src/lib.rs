@@ -103,7 +103,7 @@ mod win {
     use std::mem::size_of;
 
     use windows::core::{w, PCWSTR};
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
+    use windows::Win32::Foundation::{HANDLE, WAIT_OBJECT_0};
     use windows::Win32::Security::{
         GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
     };
@@ -113,20 +113,7 @@ mod win {
     use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW};
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
-    use janus_core::to_wide_null;
-
-    /// Win32 HANDLE 的 RAII 守卫：确保提前返回或异常展开时自动释放内核句柄。
-    struct OwnedHandle(HANDLE);
-
-    impl Drop for OwnedHandle {
-        fn drop(&mut self) {
-            if !self.0.is_invalid() {
-                unsafe {
-                    let _ = CloseHandle(self.0);
-                }
-            }
-        }
-    }
+    use janus_core::{to_wide_null, OwnedHandle};
 
     /// 检查当前进程令牌是否已提权（UAC 高完整性级别）。
     pub(super) fn is_elevated() -> bool {

@@ -21,8 +21,8 @@ mod imp {
 
     use windows::core::{w, PCWSTR};
     use windows::Win32::Foundation::{
-        CloseHandle, GetLastError, ERROR_ENVVAR_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER,
-        ERROR_NOT_ALL_ASSIGNED, HANDLE, LUID,
+        GetLastError, ERROR_ENVVAR_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER, ERROR_NOT_ALL_ASSIGNED,
+        HANDLE, LUID,
     };
     use windows::Win32::Security::{
         AdjustTokenPrivileges, LookupPrivilegeValueW, LUID_AND_ATTRIBUTES, SE_PRIVILEGE_ENABLED,
@@ -35,7 +35,7 @@ mod imp {
 
     use janus_core::{
         collect_boot_entries, encode_boot_next, parse_boot_next_var, to_wide_null, BootEntry,
-        BootId, BootManager, JanusError, Result,
+        BootId, BootManager, JanusError, OwnedHandle, Result,
     };
 
     /// UEFI 全局变量命名空间 GUID 的编译期 UTF-16 常量，避免每次读写变量重复堆分配。
@@ -49,19 +49,6 @@ mod imp {
         /// 使用当前系统的 UEFI 固件接口。
         pub fn for_running_system() -> Result<Self> {
             Ok(Self)
-        }
-    }
-
-    /// Win32 HANDLE 的 RAII 守卫：确保任何错误提前返回路径都释放内核句柄。
-    struct OwnedHandle(HANDLE);
-
-    impl Drop for OwnedHandle {
-        fn drop(&mut self) {
-            if !self.0.is_invalid() {
-                unsafe {
-                    let _ = CloseHandle(self.0);
-                }
-            }
         }
     }
 
