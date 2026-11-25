@@ -12,6 +12,7 @@
 //!   打进二进制；代价是极端精简的系统若无中文字体，界面会显示替换符。
 
 mod chrome;
+mod state;
 mod theme;
 mod update;
 mod update_worker;
@@ -26,11 +27,12 @@ use eframe::egui;
 use janus_core::{BootEntry, BootManager};
 
 use crate::autostart;
-use crate::config::{EntrySettings, Settings};
+use crate::config::Settings;
+use state::SettingsState;
 use update::UpdaterUi;
 use widgets::{
     alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, toggle_switch,
-    SettingsRow, ID_BADGE_WIDTH, SWITCH_WIDTH,
+    ID_BADGE_WIDTH, SWITCH_WIDTH,
 };
 
 /// 打开设置窗口并阻塞到窗口关闭；保存成功后写回配置文件。
@@ -115,16 +117,9 @@ struct SettingsInit<'a> {
 
 /// 设置窗口应用状态。
 struct SettingsApp {
-    rows: Vec<SettingsRow>,
-    /// 打开窗口时读到的完整设置：保存时以它为基线，保留当前固件中暂不存在的
-    /// 启动项配置（例如未插入的 U 盘），避免误删
-    base: Settings,
+    state: SettingsState,
     config_path: PathBuf,
     read_only: bool,
-    /// 打开窗口时的系统开机自启状态
-    autostart_initial: bool,
-    /// 当前开关编辑状态
-    autostart_enabled: bool,
     /// 读取或保存错误提示；保存成功窗口关闭，无需成功提示
     error: Option<String>,
     /// 版本展示与自更新面板
@@ -137,19 +132,7 @@ struct SettingsApp {
 
 impl SettingsApp {
     fn new(init: SettingsInit<'_>, ctx: &egui::Context) -> Self {
-        let rows = init
-            .entries
-            .into_iter()
-            .map(|entry| {
-                let configured = init.settings.entry(entry.id);
-                SettingsRow {
-                    id: entry.id,
-                    firmware_name: entry.name,
-                    visible: configured.map(|s| !s.hidden).unwrap_or(true),
-                    display_name: configured.and_then(|s| s.name.clone()).unwrap_or_default(),
-                }
-            })
-            .collect();
+        let state = SettingsState::new(init.entries, init.settings, init.autostart_initial);
         let logo = ctx.load_texture(
             "janus-logo",
             egui::ColorImage::from_rgba_unmultiplied(
@@ -159,12 +142,9 @@ impl SettingsApp {
             egui::TextureOptions::LINEAR,
         );
         Self {
-            rows,
-            base: init.settings.clone(),
+            state,
             config_path: init.config_path,
             read_only: init.read_only,
-            autostart_initial: init.autostart_initial,
-            autostart_enabled: init.autostart_initial,
             error: init.warning,
             updater: UpdaterUi::new(init.read_only),
             logo,
@@ -172,67 +152,22 @@ impl SettingsApp {
         }
     }
 
-    /// 构造拟保存的配置快照。
-    fn build_settings(&self) -> Settings {
-        let mut settings = self.base.clone();
-        for row in &self.rows {
-            let key = row.id.to_string();
-            let name = row.display_name.trim();
-            if !row.visible || !name.is_empty() {
-                settings.entries.insert(
-                    key,
-                    EntrySettings {
-                        hidden: !row.visible,
-                        name: (!name.is_empty()).then(|| name.to_string()),
-                    },
-                );
-            } else {
-                // 恢复默认：移除该启动项的显式配置
-                settings.entries.remove(&key);
-            }
-        }
-        settings
-    }
-
-    /// 当前界面编辑状态相对初始配置是否有未保存的变更（零堆分配逐行比对）。
-    fn is_dirty(&self) -> bool {
-        if self.autostart_enabled != self.autostart_initial {
-            return true;
-        }
-        self.rows.iter().any(|row| {
-            let trimmed = row.display_name.trim();
-            let current_hidden = !row.visible;
-            let current_name = (!trimmed.is_empty()).then_some(trimmed);
-            match self.base.entry(row.id) {
-                Some(base) => {
-                    let base_name = base
-                        .name
-                        .as_deref()
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty());
-                    base.hidden != current_hidden || base_name != current_name
-                }
-                None => current_hidden || current_name.is_some(),
-            }
-        })
-    }
-
     /// 按行状态更新基线设置并原子写盘，同步应用开机自启开关；全部成功则关闭窗口。
     fn save(&mut self, ctx: &egui::Context) {
-        let settings = self.build_settings();
-        if settings != self.base {
+        let settings = self.state.build_settings();
+        if settings != self.state.base {
             if let Err(e) = settings.save(&self.config_path) {
                 self.error = Some(format!("保存设置失败：{e:#}"));
                 return;
             }
-            self.base = settings;
+            self.state.base = settings;
         }
-        if self.autostart_enabled != self.autostart_initial {
-            if let Err(e) = autostart::set_enabled(self.autostart_enabled) {
+        if self.state.autostart_enabled != self.state.autostart_initial {
+            if let Err(e) = autostart::set_enabled(self.state.autostart_enabled) {
                 self.error = Some(format!("设置开机自启失败：{e:#}"));
                 return;
             }
-            self.autostart_initial = self.autostart_enabled;
+            self.state.autostart_initial = self.state.autostart_enabled;
         }
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
     }
@@ -240,8 +175,8 @@ impl SettingsApp {
     /// 标题、启动项分区与“关于与更新”分区。
     fn content_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         ui.add_space(4.0);
-        let total = self.rows.len();
-        let visible_count = self.rows.iter().filter(|r| r.visible).count();
+        let total = self.state.rows.len();
+        let visible_count = self.state.rows.iter().filter(|r| r.visible).count();
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.add(egui::Label::new(
@@ -292,7 +227,7 @@ impl SettingsApp {
                     ));
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    toggle_switch(ui, &mut self.autostart_enabled);
+                    toggle_switch(ui, &mut self.state.autostart_enabled);
                 });
             });
         });
@@ -300,7 +235,7 @@ impl SettingsApp {
 
     /// 启动项分区：标题、快捷“全部显示”按钮与条目列表。
     fn list_panel_ui(&mut self, ui: &mut egui::Ui) {
-        let has_hidden = self.rows.iter().any(|r| !r.visible);
+        let has_hidden = self.state.rows.iter().any(|r| !r.visible);
         panel_frame(ui).show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
@@ -314,7 +249,7 @@ impl SettingsApp {
                 );
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if has_hidden && ui.add(ghost_button(ui, "全部显示")).clicked() {
-                        for row in &mut self.rows {
+                        for row in &mut self.state.rows {
                             row.visible = true;
                         }
                     }
@@ -324,7 +259,7 @@ impl SettingsApp {
             ui.separator();
             ui.add_space(4.0);
 
-            if self.rows.is_empty() {
+            if self.state.rows.is_empty() {
                 ui.add_space(24.0);
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("当前没有可配置的启动项").weak());
@@ -337,7 +272,7 @@ impl SettingsApp {
             let field_width = (available * 0.38).clamp(160.0, 250.0);
             let name_block_width =
                 (available - SWITCH_WIDTH - ID_BADGE_WIDTH - field_width - 48.0).max(110.0);
-            for (index, row) in self.rows.iter_mut().enumerate() {
+            for (index, row) in self.state.rows.iter_mut().enumerate() {
                 if index > 0 {
                     ui.add_space(2.0);
                 }
@@ -451,7 +386,7 @@ impl SettingsApp {
 impl eframe::App for SettingsApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
-        let dirty = self.is_dirty();
+        let dirty = self.state.is_dirty();
 
         // 键盘快捷键：Ctrl+S / Cmd+S 保存，Esc 取消关闭
         if !self.read_only
