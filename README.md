@@ -63,8 +63,9 @@ janus list                        List boot entries (BootOrder order)
 janus next <target>               Set BootNext (no reboot)
 janus clear                       Clear BootNext
 janus reboot [--into <target>]    Set BootNext and reboot now
-janus settings                    Graphical settings: visibility and display names
+janus settings                    Graphical settings: visibility, display names, and autostart
 janus tray                        Explicitly start the resident tray app
+janus autostart [on|off|status]   Manage launch at login (defaults to status)
 janus update [--check] [--yes]    Self-update (signed manifest)
 janus --dry-run ...               Mock backend, never touches firmware
 janus --all ...                   Ignore display settings; show every entry with firmware names
@@ -105,8 +106,9 @@ On **Linux** the tray runs unprivileged in your desktop session; every switch go
 ### Display settings
 
 "设置" in the tray menu (or `janus settings`) opens a graphical window where you
-can choose which boot entries appear in the tray and CLI lists, and give them
-custom display names. The settings file lives at:
+can choose which boot entries appear in the tray and CLI lists, give them
+custom display names, and toggle launch at login (writes an XDG autostart
+entry on Linux or `HKCU\...\Run` on Windows). The settings file lives at:
 
 - Linux: `$XDG_CONFIG_HOME/janus/config.toml` (defaults to `~/.config/janus/config.toml`)
 - Windows: `%APPDATA%\janus\config.toml`

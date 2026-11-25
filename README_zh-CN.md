@@ -63,8 +63,9 @@ janus list                        列出启动项（按 BootOrder 顺序）
 janus next <目标>                  设置 BootNext（不重启）
 janus clear                       清除 BootNext
 janus reboot [--into <目标>]       设置 BootNext 并立即重启
-janus settings                    打开图形设置：选择显示项与自定义名称
+janus settings                    打开图形设置：显示项、自定义名称与开机自启
 janus tray                        显式启动系统托盘（常驻）
+janus autostart [on|off|status]   管理开机自启（默认查看当前状态）
 janus update [--check] [--yes]    自更新（签名清单校验）
 janus --dry-run ...               Mock 后端，不触碰真实固件
 janus --all ...                   忽略显示设置，展示全部启动项与固件原名
@@ -105,7 +106,8 @@ $ janus reboot --into "Windows Boot Manager"
 ### 显示设置
 
 托盘菜单的“设置”或 `janus settings` 会打开图形设置窗口：勾选要显示在托盘与 CLI
-列表中的启动项，并可填写自定义显示名称。设置文件位置：
+列表中的启动项、填写自定义显示名称，以及开关「开机自动启动托盘」（Linux 写入
+XDG autostart 目录，Windows 写入当前用户 `HKCU\...\Run` 启动项）。设置文件位置：
 
 - Linux：`$XDG_CONFIG_HOME/janus/config.toml`（未设置时 `~/.config/janus/config.toml`）
 - Windows：`%APPDATA%\janus\config.toml`
