@@ -2225,7 +2225,7 @@ checksum = "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4"
 
 [[package]]
 name = "janus"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2248,7 +2248,7 @@ dependencies = [
 
 [[package]]
 name = "janus-backend-linux"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "janus-core",
  "libc",
@@ -2257,7 +2257,7 @@ dependencies = [
 
 [[package]]
 name = "janus-backend-windows"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "janus-core",
  "windows",
@@ -2265,7 +2265,7 @@ dependencies = [
 
 [[package]]
 name = "janus-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2275,7 +2275,7 @@ dependencies = [
 
 [[package]]
 name = "janus-privilege"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "janus-core",
  "libc",
@@ -2284,7 +2284,7 @@ dependencies = [
 
 [[package]]
 name = "janus-tray"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "crossbeam-channel",
  "janus-core",
@@ -2295,7 +2295,7 @@ dependencies = [
 
 [[package]]
 name = "janus-updater"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "shipup",
  "tempfile",

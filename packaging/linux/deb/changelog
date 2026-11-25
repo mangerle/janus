@@ -1,3 +1,11 @@
+janus (0.2.0) unstable; urgency=medium
+
+  * 设置窗口支持主题自动探测、自绘一体化标题栏与品牌视觉重构。
+  * 托盘菜单精简启动项显示，支持按需刷新与 O(N) 构建优化。
+  * 收敛图形提权链路至 janus-privilege，拆分核心与托盘模块，消除帧级堆分配与重复逻辑。
+
+ -- wangle <wangle@agree.com.cn>  Wed, 25 Nov 2026 20:55:00 +0800
+
 janus (0.1.0) unstable; urgency=medium
 
   * Initial release: BootNext 切换（list/next/clear/reboot）、托盘常驻

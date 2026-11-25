@@ -34,6 +34,11 @@
   </provides>
 
   <releases>
+    <release version="0.2.0" date="2026-11-25">
+      <description>
+        <p>设置界面视觉与交互升级，托盘按需刷新与性能优化，核心与平台模块重构。</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-11-21">
       <description>
         <p>首个公开版本：list / next / clear / reboot / tray / update 全套命令，
