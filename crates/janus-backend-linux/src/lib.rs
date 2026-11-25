@@ -22,8 +22,8 @@ mod imp {
     use std::path::{Path, PathBuf};
 
     use janus_core::{
-        collect_boot_entries, encode_boot_next, parse_boot_next, BootEntry, BootId, BootManager,
-        JanusError, Result, EFI_VARIABLE_BOOT_ACCESS, EFI_VARIABLE_GUID,
+        collect_boot_entries, encode_boot_next, parse_boot_next_var, BootEntry, BootId,
+        BootManager, JanusError, Result, EFI_VARIABLE_BOOT_ACCESS, EFI_VARIABLE_GUID,
     };
 
     /// 运行系统的 efivarfs 挂载点。
@@ -162,7 +162,7 @@ mod imp {
         fn boot_next(&self) -> Result<Option<BootId>> {
             self.check_dir()?;
             match self.read_var("BootNext")? {
-                Some(data) => Ok(parse_boot_next(&data)),
+                Some(data) => parse_boot_next_var(&data).map(Some),
                 None => Ok(None),
             }
         }
@@ -296,6 +296,14 @@ mod imp {
                 mgr.list_entries(),
                 Err(JanusError::NotUefiSystem(_))
             ));
+        }
+
+        #[test]
+        fn corrupted_boot_next_returns_parse_error() {
+            let dir = tempfile::tempdir().unwrap();
+            write_var_file(dir.path(), "BootNext", 0x7, &[0x01]);
+            let mgr = LinuxBootManager::with_efivars_dir(dir.path());
+            assert!(matches!(mgr.boot_next(), Err(JanusError::Parse { .. })));
         }
     }
 }

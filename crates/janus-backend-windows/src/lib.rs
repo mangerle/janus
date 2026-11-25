@@ -34,8 +34,8 @@ mod imp {
     };
 
     use janus_core::{
-        collect_boot_entries, encode_boot_next, parse_boot_next, to_wide_null, BootEntry, BootId,
-        BootManager, JanusError, Result, EFI_VARIABLE_GUID_BRACED,
+        collect_boot_entries, encode_boot_next, parse_boot_next_var, to_wide_null, BootEntry,
+        BootId, BootManager, JanusError, Result, EFI_VARIABLE_GUID_BRACED,
     };
 
     /// 基于 Win32 固件环境变量 API 的启动管理器。
@@ -165,7 +165,10 @@ mod imp {
         }
 
         fn boot_next(&self) -> Result<Option<BootId>> {
-            Ok(get_var("BootNext")?.and_then(|d| parse_boot_next(&d)))
+            match get_var("BootNext")? {
+                Some(data) => parse_boot_next_var(&data).map(Some),
+                None => Ok(None),
+            }
         }
 
         fn set_boot_next(&self, id: BootId) -> Result<()> {

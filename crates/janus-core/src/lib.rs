@@ -253,6 +253,18 @@ pub fn parse_boot_next(data: &[u8]) -> Option<BootId> {
     Some(BootId::new(u16::from_le_bytes([data[0], data[1]])))
 }
 
+/// 严格解析 BootNext 变量数据：变量存在但不足 2 字节时返回 [`JanusError::Parse`]，
+/// 避免把损坏的固件数据静默当作“未设置”。
+///
+/// # Errors
+/// 数据长度不足 2 字节时返回 [`JanusError::Parse`]。
+pub fn parse_boot_next_var(data: &[u8]) -> Result<BootId> {
+    parse_boot_next(data).ok_or_else(|| JanusError::Parse {
+        var: "BootNext".into(),
+        msg: format!("数据过短（{} 字节，需要至少 2 字节）", data.len()),
+    })
+}
+
 /// 编码 BootNext 原始值（2 字节 u16 LE）。
 pub fn encode_boot_next(id: BootId) -> [u8; 2] {
     id.raw().to_le_bytes()
@@ -503,6 +515,11 @@ mod tests {
         let raw = encode_boot_next(BootId::new(0x0002));
         assert_eq!(parse_boot_next(&raw), Some(BootId::new(0x0002)));
         assert_eq!(parse_boot_next(&[]), None);
+        assert_eq!(parse_boot_next_var(&raw).unwrap(), BootId::new(0x0002));
+        assert!(matches!(
+            parse_boot_next_var(&[0x01]),
+            Err(JanusError::Parse { .. })
+        ));
     }
 
     #[test]
