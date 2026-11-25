@@ -165,15 +165,16 @@ fn apply_spacing_and_fonts(style: &mut egui::Style) {
 }
 
 /// Linux 系统明暗探测；仅作为设置窗口启动时的一次性判断。
+/// 优先检查零开销的环境变量，再探测 XDG Portal / gsettings，最后回退本地配置。
 #[cfg(target_os = "linux")]
 fn detect_linux_dark() -> Option<bool> {
+    if let Some(dark) = env_dark() {
+        return Some(dark);
+    }
     if let Some(dark) = portal_dark() {
         return Some(dark);
     }
     if let Some(dark) = gsettings_dark() {
-        return Some(dark);
-    }
-    if let Some(dark) = env_dark() {
         return Some(dark);
     }
     config_file_dark()
@@ -244,9 +245,11 @@ fn env_dark() -> Option<bool> {
     }
 }
 
-/// GTK 3/4 与 KDE 配置文件的兜底探测。
+/// GTK 3/4 与 KDE 配置文件的兜底探测（逐行流式读取，避免整文件小写拷贝）。
 #[cfg(target_os = "linux")]
 fn config_file_dark() -> Option<bool> {
+    use std::io::{BufRead as _, BufReader};
+
     let home = std::path::PathBuf::from(std::env::var_os("HOME")?);
     let candidates = [
         home.join(".config/gtk-4.0/settings.ini"),
@@ -254,23 +257,22 @@ fn config_file_dark() -> Option<bool> {
         home.join(".config/kdeglobals"),
     ];
     for path in candidates {
-        let Ok(text) = std::fs::read_to_string(&path) else {
+        let Ok(file) = std::fs::File::open(&path) else {
             continue;
         };
-        let lower = text.to_ascii_lowercase();
-        for line in lower.lines() {
+        for line in BufReader::new(file).lines().map_while(Result::ok) {
             let line = line.trim();
-            if line == "gtk-application-prefer-dark-theme=1" {
+            if line.eq_ignore_ascii_case("gtk-application-prefer-dark-theme=1") {
                 return Some(true);
             }
-            if let Some(value) = line.strip_prefix("gtk-theme-name=") {
-                if !value.is_empty() {
-                    return Some(value.contains("dark"));
-                }
-            }
-            if let Some(value) = line.strip_prefix("colorscheme=") {
-                if !value.is_empty() {
-                    return Some(value.contains("dark"));
+            if let Some((key, value)) = line.split_once('=') {
+                let key = key.trim();
+                let value = value.trim();
+                if !value.is_empty()
+                    && (key.eq_ignore_ascii_case("gtk-theme-name")
+                        || key.eq_ignore_ascii_case("colorscheme"))
+                {
+                    return Some(value.to_ascii_lowercase().contains("dark"));
                 }
             }
         }
@@ -278,7 +280,7 @@ fn config_file_dark() -> Option<bool> {
     None
 }
 
-/// 带超时执行探测命令：400ms 未退出即强制结束并回收，避免拖住窗口启动。
+/// 带超时执行探测命令：150ms 未退出即强制结束并回收，避免拖住窗口启动。
 #[cfg(target_os = "linux")]
 fn run_command(program: &str, args: &[&str]) -> Option<String> {
     use std::io::Read as _;
@@ -290,7 +292,8 @@ fn run_command(program: &str, args: &[&str]) -> Option<String> {
         .stderr(Stdio::null())
         .spawn()
         .ok()?;
-    let deadline = Instant::now() + Duration::from_millis(400);
+    let deadline = Instant::now() + Duration::from_millis(150);
+    let mut backoff = Duration::from_millis(1);
     loop {
         match child.try_wait() {
             Ok(Some(_)) => {
@@ -306,7 +309,10 @@ fn run_command(program: &str, args: &[&str]) -> Option<String> {
                 log::debug!("系统主题探测命令超时：{program}");
                 return None;
             }
-            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+            Ok(None) => {
+                std::thread::sleep(backoff);
+                backoff = (backoff * 2).min(Duration::from_millis(16));
+            }
             Err(_) => {
                 let _ = child.kill();
                 let _ = child.wait();
