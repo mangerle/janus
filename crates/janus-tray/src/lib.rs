@@ -101,12 +101,12 @@ mod shared {
         let menu = Menu::new();
         let current_next = (actions.current_next)();
 
-        // 信息行尽量展示自定义名称；当前下次启动项被隐藏时退回编号
+        // 信息行展示名称；当前下次启动项被隐藏时退回编号
         let next_desc = match current_next {
             Some(id) => entries
                 .iter()
                 .find(|e| e.id == id)
-                .map(|e| format!("{}（{}）", e.name, e.id))
+                .map(|e| e.name.clone())
                 .unwrap_or_else(|| id.to_string()),
             None => "未设置".into(),
         };
@@ -144,15 +144,24 @@ mod shared {
     }
 
     /// 构建一个按启动项展开的子菜单（动作前缀区分"重启进入"与"仅设置"）。
+    ///
+    /// 默认仅展示启动项名称，去掉 `BootXXXX` 前缀保持菜单清爽；
+    /// 仅当列表中存在同名条目时才附加编号消歧义。
     fn entry_submenu(title: &str, prefix: &str, entries: &[BootEntry]) -> Submenu {
         let submenu = Submenu::new(title, true);
         for e in entries {
-            let item = MenuItem::with_id(
-                format!("{prefix}{:04X}", e.id.raw()),
-                format!("{}  {}", e.id, e.name),
-                true,
-                None,
-            );
+            let duplicated = entries
+                .iter()
+                .filter(|other| other.name == e.name)
+                .take(2)
+                .count()
+                > 1;
+            let label = if duplicated {
+                format!("{}（{}）", e.name, e.id)
+            } else {
+                e.name.clone()
+            };
+            let item = MenuItem::with_id(format!("{prefix}{:04X}", e.id.raw()), label, true, None);
             let _ = submenu.append(&item);
         }
         submenu

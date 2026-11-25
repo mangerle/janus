@@ -30,9 +30,11 @@ use widgets::{
     alert_banner, count_pill, ghost_button, panel_frame, primary_button, row_ui, SettingsRow,
 };
 
-/// 托盘图标同时用作窗口图标与标题 Logo（与托盘同源，32x32 RGBA）。
+/// 标题栏小 Logo（32x32 RGBA）与窗口/Dock 图标（128x128 RGBA）。
 const ICON_RGBA: &[u8] = include_bytes!("../../../janus-tray/assets/icon-32.rgba");
 const ICON_DIM: u32 = 32;
+const WINDOW_ICON_RGBA: &[u8] = include_bytes!("../../../janus-tray/assets/icon-128.rgba");
+const WINDOW_ICON_DIM: u32 = 128;
 
 /// 打开设置窗口并阻塞到窗口关闭；保存成功后写回配置文件。
 ///
@@ -55,13 +57,14 @@ pub(crate) fn run_settings_window(
     };
     let config_path = config_path.to_path_buf();
     let icon = egui::IconData {
-        rgba: ICON_RGBA.to_vec(),
-        width: ICON_DIM,
-        height: ICON_DIM,
+        rgba: WINDOW_ICON_RGBA.to_vec(),
+        width: WINDOW_ICON_DIM,
+        height: WINDOW_ICON_DIM,
     };
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
+            .with_app_id("com.github.mangerle.janus")
             .with_inner_size([740.0, 540.0])
             .with_min_inner_size([600.0, 420.0])
             // 自绘标题栏：去掉原生灰色装饰条，与深色内容一体化

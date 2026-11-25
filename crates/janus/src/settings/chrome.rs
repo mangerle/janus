@@ -21,7 +21,7 @@ pub(crate) fn titlebar_ui(
         .frame(
             egui::Frame::new()
                 .fill(ui.visuals().panel_fill)
-                .inner_margin(egui::Margin::symmetric(14, 8)),
+                .inner_margin(egui::Margin::symmetric(18, 12)),
         )
         .show(ui, |ui| {
             // 整条空白区域可拖动窗口；后添加的按钮在交互优先级上高于背景
@@ -40,17 +40,23 @@ pub(crate) fn titlebar_ui(
             ui.horizontal(|ui| {
                 ui.add(egui::Image::new(egui::load::SizedTexture::new(
                     logo.id(),
-                    egui::vec2(20.0, 20.0),
+                    egui::vec2(26.0, 26.0),
                 )));
-                ui.add(egui::Label::new(egui::RichText::new("Janus").strong()));
-                ui.add(egui::Label::new(egui::RichText::new("设置").weak()));
+                ui.add_space(2.0);
+                ui.add(egui::Label::new(
+                    egui::RichText::new("Janus").size(15.5).strong(),
+                ));
+                ui.add(egui::Label::new(
+                    egui::RichText::new("设置").size(14.0).weak(),
+                ));
                 if dirty {
+                    ui.add_space(4.0);
                     let accent = ui.visuals().selection.bg_fill;
                     let (dot_rect, _) =
                         ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
                     ui.painter().circle_filled(dot_rect.center(), 3.5, accent);
                     ui.add(egui::Label::new(
-                        egui::RichText::new("未保存").size(11.0).color(accent),
+                        egui::RichText::new("未保存").size(11.5).color(accent),
                     ));
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -95,7 +101,7 @@ enum WindowControl {
 
 /// 绘制一个单色窗口控制按钮（悬停显示背景，关闭按钮悬停为红色）。
 fn window_control(ui: &mut egui::Ui, kind: WindowControl) -> egui::Response {
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(34.0, 26.0), egui::Sense::click());
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(38.0, 28.0), egui::Sense::click());
     let hovered = response.hovered();
     let closing = kind == WindowControl::Close && hovered;
     let background = if closing {
