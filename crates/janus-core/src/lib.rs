@@ -1,4 +1,4 @@
-//! janus-core：平台无关的核心类型与解析逻辑。
+//! janus-core：Janus Boot 平台无关的核心类型与解析逻辑。
 //!
 //! - [`BootId`] / [`BootEntry`] / [`BootManager`]：统一的启动项抽象，由各平台后端实现
 //! - [`parse_load_option`]：解析 `EFI_LOAD_OPTION` 二进制结构（UTF-16LE 描述符）

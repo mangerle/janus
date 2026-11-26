@@ -100,7 +100,7 @@ fn entry_submenu(
 pub(crate) fn build_tray(entries: &[BootEntry], actions: &TrayActions) -> Result<TrayIcon> {
     TrayIconBuilder::new()
         .with_menu(Box::new(build_menu(entries, actions)))
-        .with_tooltip("Janus —— UEFI 启动切换")
+        .with_tooltip("Janus Boot —— UEFI 启动切换")
         .with_icon(generate_icon())
         .build()
         .map_err(|e| JanusError::Other(format!("创建托盘失败：{e}")))

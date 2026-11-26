@@ -313,7 +313,7 @@ mod imp {
 mod imp {
     use janus_core::{BootEntry, BootId, BootManager, JanusError, Result};
 
-    const UNSUPPORTED: &str = "janus 的 efivarfs 后端仅支持 Linux";
+    const UNSUPPORTED: &str = "Janus Boot 的 efivarfs 后端仅支持 Linux";
 
     /// 非 Linux 平台的占位实现。
     #[derive(Debug, Clone, Default)]

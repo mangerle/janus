@@ -4,9 +4,9 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
-    name = "janus",
+    name = "janus-boot",
     version,
-    about = "Janus —— 跨平台 UEFI 启动切换工具（写 BootNext + 重启，托盘常驻 + CLI）",
+    about = "Janus Boot —— 跨平台 UEFI 启动切换工具（写 BootNext + 重启，托盘常驻 + CLI）",
     after_help = "不带子命令时默认启动托盘；启动目标参数支持：BootXXXX 编号（十六进制，如 1 / 0x0002 / Boot0001）或名称子串（不区分大小写）"
 )]
 pub(crate) struct Cli {
@@ -93,7 +93,7 @@ pub(crate) enum Command {
     },
 }
 
-/// `janus autostart` 子命令动作。
+/// `janus-boot autostart` 子命令动作。
 #[derive(Subcommand, Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AutostartAction {
     /// 开启开机自启（登录后自动启动托盘）
@@ -112,39 +112,39 @@ mod tests {
     #[test]
     fn no_subcommand_parses_to_none() {
         // 无参数必须合法解析（commands::run 据此默认进入托盘）
-        let cli = Cli::try_parse_from(["janus"]).expect("无参数应解析成功");
+        let cli = Cli::try_parse_from(["janus-boot"]).expect("无参数应解析成功");
         assert!(cli.command.is_none());
     }
 
     #[test]
     fn explicit_tray_subcommand_still_parses() {
-        let cli = Cli::try_parse_from(["janus", "tray"]).expect("tray 应解析成功");
+        let cli = Cli::try_parse_from(["janus-boot", "tray"]).expect("tray 应解析成功");
         assert!(matches!(cli.command, Some(Command::Tray)));
     }
 
     #[test]
     fn global_flag_without_subcommand_keeps_default() {
         // --dry-run 托盘等全局开关不应隐式要求子命令
-        let cli = Cli::try_parse_from(["janus", "--dry-run"]).expect("--dry-run 应解析成功");
+        let cli = Cli::try_parse_from(["janus-boot", "--dry-run"]).expect("--dry-run 应解析成功");
         assert!(cli.dry_run);
         assert!(cli.command.is_none());
     }
 
     #[test]
     fn settings_subcommand_parses() {
-        let cli = Cli::try_parse_from(["janus", "settings"]).expect("settings 应解析成功");
+        let cli = Cli::try_parse_from(["janus-boot", "settings"]).expect("settings 应解析成功");
         assert!(matches!(cli.command, Some(Command::Settings)));
     }
 
     #[test]
     fn all_flag_is_global_after_subcommand() {
-        let cli = Cli::try_parse_from(["janus", "list", "--all"]).expect("--all 应解析成功");
+        let cli = Cli::try_parse_from(["janus-boot", "list", "--all"]).expect("--all 应解析成功");
         assert!(cli.all);
     }
 
     #[test]
     fn apply_subcommand_matches_shared_constant() {
-        let cli = Cli::try_parse_from(["janus", super::APPLY_SUBCOMMAND, "0001", "--reboot"])
+        let cli = Cli::try_parse_from(["janus-boot", super::APPLY_SUBCOMMAND, "0001", "--reboot"])
             .expect("_apply 内部子命令应解析成功");
         assert!(matches!(
             cli.command,
@@ -154,21 +154,22 @@ mod tests {
 
     #[test]
     fn autostart_subcommand_parses() {
-        let status = Cli::try_parse_from(["janus", "autostart"]).expect("autostart 应解析成功");
+        let status =
+            Cli::try_parse_from(["janus-boot", "autostart"]).expect("autostart 应解析成功");
         assert!(matches!(
             status.command,
             Some(Command::Autostart { action: None })
         ));
-        let on =
-            Cli::try_parse_from(["janus", "autostart", "on"]).expect("autostart on 应解析成功");
+        let on = Cli::try_parse_from(["janus-boot", "autostart", "on"])
+            .expect("autostart on 应解析成功");
         assert!(matches!(
             on.command,
             Some(Command::Autostart {
                 action: Some(super::AutostartAction::On)
             })
         ));
-        let off =
-            Cli::try_parse_from(["janus", "autostart", "off"]).expect("autostart off 应解析成功");
+        let off = Cli::try_parse_from(["janus-boot", "autostart", "off"])
+            .expect("autostart off 应解析成功");
         assert!(matches!(
             off.command,
             Some(Command::Autostart {

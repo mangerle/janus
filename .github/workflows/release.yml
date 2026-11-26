@@ -1,11 +1,11 @@
 name: Release
 
-# Janus 发布流水线（shipup 签名自更新通道）：
+# Janus Boot 发布流水线（shipup 签名自更新通道）：
 # - Linux: x86_64 .deb 安装包（同时构建 tar.gz 与 AppImage 挂载到 Release）
 # - Windows: x64 NSIS 安装包（同时构建便携 zip 挂载到 Release）
 # 自更新清单 latest.json 由 shipup-cli 生成并做 Ed25519 签名（Secret:
 # SHIPUP_PRIVATE_KEY，对应公钥已内嵌于 crates/janus-updater）。客户端
-# `janus update` 会先验清单签名，再校验包 SHA-256 与包签名后才替换二进制。
+# `janus-boot update` 会先验清单签名，再校验包 SHA-256 与包签名后才替换二进制。
 
 on:
   push:
@@ -130,15 +130,15 @@ jobs:
           cargo install cargo-packager --locked
 
       - name: 编译 Release 二进制
-        run: cargo build --locked --release -p janus
+        run: cargo build --locked --release -p janus-boot
 
       - name: 构建 DEB 安装包
-        run: cargo deb -p janus --no-build
+        run: cargo deb -p janus-boot --no-build
 
       - name: 构建 AppImage
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
-        run: cargo packager --release -p janus --formats appimage
+        run: cargo packager --release -p janus-boot --formats appimage
 
       - name: 规整产物并重命名
         shell: bash
@@ -147,17 +147,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/pack dist
-          cp target/release/janus dist/pack/
+          cp target/release/janus-boot dist/pack/
           cp README.md README_zh-CN.md LICENSE dist/pack/
-          tar -czf "dist/janus_${VERSION}_linux_amd64.tar.gz" -C dist/pack .
+          tar -czf "dist/janus-boot_${VERSION}_linux_amd64.tar.gz" -C dist/pack .
 
           DEB="$(find target -path '*/debian/*.deb' -type f | head -n 1)"
           if [ -z "$DEB" ]; then echo "::error::未找到 DEB 产物"; exit 1; fi
-          cp "$DEB" "dist/janus_${VERSION}_linux_amd64.deb"
+          cp "$DEB" "dist/janus-boot_${VERSION}_linux_amd64.deb"
 
           APPIMAGE="$(find target -name '*.AppImage' -type f | head -n 1)"
           if [ -z "$APPIMAGE" ]; then echo "::error::未找到 AppImage 产物"; exit 1; fi
-          cp "$APPIMAGE" "dist/janus_${VERSION}_linux_amd64.AppImage"
+          cp "$APPIMAGE" "dist/janus-boot_${VERSION}_linux_amd64.AppImage"
 
           ls -lh dist
 
@@ -190,10 +190,10 @@ jobs:
         run: cargo install cargo-packager --locked
 
       - name: 编译 Release 二进制
-        run: cargo build --locked --release -p janus
+        run: cargo build --locked --release -p janus-boot
 
       - name: 构建 NSIS 安装包
-        run: cargo packager --release -p janus --formats nsis
+        run: cargo packager --release -p janus-boot --formats nsis
 
       - name: 规整产物（NSIS 安装包 + 便携 zip）
         shell: pwsh
@@ -207,16 +207,16 @@ jobs:
           $setup = Get-ChildItem -Path "target" -Filter "*-setup.exe" -File -Recurse |
             Select-Object -First 1
           if (-not $setup) { throw "未找到 NSIS 安装包" }
-          Copy-Item $setup.FullName (Join-Path $dist "janus_$($env:VERSION)_windows_x64_setup.exe")
+          Copy-Item $setup.FullName (Join-Path $dist "janus-boot_$($env:VERSION)_windows_x64_setup.exe")
 
-          $portable = Join-Path $env:RUNNER_TEMP "janus-portable"
+          $portable = Join-Path $env:RUNNER_TEMP "janus-boot-portable"
           New-Item -ItemType Directory -Force -Path $portable | Out-Null
-          Copy-Item "target/release/janus.exe" $portable
+          Copy-Item "target/release/janus-boot.exe" $portable
           Copy-Item "README.md" $portable
           Copy-Item "README_zh-CN.md" $portable
           Copy-Item "LICENSE" $portable
           Compress-Archive -Path (Join-Path $portable "*") `
-            -DestinationPath (Join-Path $dist "janus_$($env:VERSION)_windows_x64.zip") -Force
+            -DestinationPath (Join-Path $dist "janus-boot_$($env:VERSION)_windows_x64.zip") -Force
           Get-ChildItem $dist | Format-Table Name, Length
 
       - name: 上传 Windows 构建产物
@@ -296,8 +296,8 @@ jobs:
 
           # 安装包：installer 类型（同一 target 在 latest.json 只能对应一个产物）
           # deb 安装需要 root（对应客户端 --require-elevation）；tar.gz / AppImage / zip 仍作为 Release 附件发布
-          sign_package "release-files/janus_${VERSION}_linux_amd64.deb" "x86_64-unknown-linux-gnu" installer --require-elevation --wait-for-exit
-          sign_package "release-files/janus_${VERSION}_windows_x64_setup.exe" "x86_64-pc-windows-msvc" installer --wait-for-exit
+          sign_package "release-files/janus-boot_${VERSION}_linux_amd64.deb" "x86_64-unknown-linux-gnu" installer --require-elevation --wait-for-exit
+          sign_package "release-files/janus-boot_${VERSION}_windows_x64_setup.exe" "x86_64-pc-windows-msvc" installer --wait-for-exit
 
           ls -lh release-files
           python3 -m json.tool release-files/latest.json > /dev/null
@@ -323,14 +323,14 @@ jobs:
               --target "$target" \
               --public-key "$EMBEDDED_KEY"
           }
-          verify_package "release-files/janus_${VERSION}_linux_amd64.deb" "x86_64-unknown-linux-gnu"
-          verify_package "release-files/janus_${VERSION}_windows_x64_setup.exe" "x86_64-pc-windows-msvc"
+          verify_package "release-files/janus-boot_${VERSION}_linux_amd64.deb" "x86_64-unknown-linux-gnu"
+          verify_package "release-files/janus-boot_${VERSION}_windows_x64_setup.exe" "x86_64-pc-windows-msvc"
 
       - name: 发布 GitHub Release 并挂载全部产物
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: Janus v${{ needs.prepare.outputs.version }}
+          name: Janus Boot v${{ needs.prepare.outputs.version }}
           body_path: RELEASE_CHANGELOG.md
           files: release-files/*
         env:

@@ -3,8 +3,8 @@
 //! # 设计原理（Why）
 //! - Linux：按 XDG Autostart 规范读写 `$XDG_CONFIG_HOME/autostart/com.github.mangerle.janus.desktop`，
 //!   普通用户权限即可生效，且与托盘以普通用户运行的模型一致。
-//! - Windows：读写 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 下的 `Janus` 值，
-//!   标准用户权限即可设置（代价是用户启用 UAC 时登录拉起 `janus tray` 会弹一次 UAC 确认）。
+//! - Windows：读写 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 下的 `Janus Boot` 值，
+//!   标准用户权限即可设置（代价是用户启用 UAC 时登录拉起 `janus-boot tray` 会弹一次 UAC 确认）。
 
 /// 查询当前用户是否已开启开机自启。
 ///
@@ -135,7 +135,7 @@ mod linux {
             "[Desktop Entry]\n\
              Type=Application\n\
              Version=1.0\n\
-             Name=Janus\n\
+             Name=Janus Boot\n\
              GenericName=UEFI Boot Switcher\n\
              Comment=写入 UEFI BootNext 并重启，一键进入另一个系统\n\
              Exec={exec} tray\n\
@@ -152,7 +152,7 @@ mod linux {
         #[test]
         fn linux_autostart_enable_disable_roundtrip() {
             let dir = tempfile::tempdir().expect("创建临时目录失败");
-            let exe = Path::new("/opt/janus app/janus");
+            let exe = Path::new("/opt/janus-boot app/janus-boot");
 
             assert!(!is_enabled_in(dir.path()).unwrap());
 
@@ -160,7 +160,7 @@ mod linux {
             assert!(is_enabled_in(dir.path()).unwrap());
 
             let content = fs::read_to_string(dir.path().join(DESKTOP_FILENAME)).unwrap();
-            assert!(content.contains(r#"Exec="/opt/janus app/janus" tray"#));
+            assert!(content.contains(r#"Exec="/opt/janus-boot app/janus-boot" tray"#));
 
             set_enabled_in(dir.path(), exe, false).unwrap();
             assert!(!is_enabled_in(dir.path()).unwrap());
@@ -192,7 +192,8 @@ mod windows_impl {
     };
 
     const RUN_SUBKEY: PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Run");
-    const VALUE_NAME: PCWSTR = w!("Janus");
+    const VALUE_NAME: PCWSTR = w!("Janus Boot");
+    const LEGACY_VALUE_NAME: PCWSTR = w!("Janus");
 
     pub(super) fn is_enabled() -> anyhow::Result<bool> {
         let status = unsafe {
@@ -207,27 +208,42 @@ mod windows_impl {
             )
         };
         if status == ERROR_SUCCESS {
-            Ok(true)
-        } else if status == ERROR_FILE_NOT_FOUND {
-            Ok(false)
-        } else {
-            Err(anyhow::anyhow!(
+            return Ok(true);
+        }
+        if status != ERROR_FILE_NOT_FOUND {
+            return Err(anyhow::anyhow!(
                 "查询 Windows 启动项注册表失败（错误码 {}）",
                 status.0
-            ))
+            ));
+        }
+
+        // 兼容重命名前写入的旧值，避免升级后误报为“未开启”
+        let legacy_status = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                RUN_SUBKEY,
+                LEGACY_VALUE_NAME,
+                RRF_RT_REG_SZ,
+                None,
+                None,
+                None,
+            )
+        };
+        match legacy_status {
+            ERROR_SUCCESS => Ok(true),
+            ERROR_FILE_NOT_FOUND => Ok(false),
+            status => Err(anyhow::anyhow!(
+                "查询 Windows 旧启动项注册表失败（错误码 {}）",
+                status.0
+            )),
         }
     }
 
     pub(super) fn set_enabled(enabled: bool) -> anyhow::Result<()> {
         if !enabled {
-            let status = unsafe { RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN_SUBKEY, VALUE_NAME) };
-            if status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND {
-                return Ok(());
-            }
-            return Err(anyhow::anyhow!(
-                "删除 Windows 启动项注册表失败（错误码 {}）",
-                status.0
-            ));
+            delete_run_value(VALUE_NAME)?;
+            delete_run_value(LEGACY_VALUE_NAME)?;
+            return Ok(());
         }
 
         let exe = std::env::current_exe().context("无法定位当前可执行文件路径")?;
@@ -244,13 +260,27 @@ mod windows_impl {
                 byte_len,
             )
         };
-        if status == ERROR_SUCCESS {
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!(
+        if status != ERROR_SUCCESS {
+            return Err(anyhow::anyhow!(
                 "写入 Windows 启动项注册表失败（错误码 {}）",
                 status.0
-            ))
+            ));
         }
+        if let Err(e) = delete_run_value(LEGACY_VALUE_NAME) {
+            log::warn!("删除 Windows 旧自启项失败（新自启项已生效，忽略）：{e:#}");
+        }
+        Ok(())
+    }
+
+    /// 删除指定名称的 HKCU Run 值；值本就不存在时视为成功。
+    fn delete_run_value(name: PCWSTR) -> anyhow::Result<()> {
+        let status = unsafe { RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN_SUBKEY, name) };
+        if status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND {
+            return Ok(());
+        }
+        Err(anyhow::anyhow!(
+            "删除 Windows 启动项注册表失败（错误码 {}）",
+            status.0
+        ))
     }
 }

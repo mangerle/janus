@@ -2224,7 +2224,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4"
 
 [[package]]
-name = "janus"
+name = "janus-backend-linux"
+version = "0.3.0"
+dependencies = [
+ "janus-core",
+ "libc",
+ "tempfile",
+]
+
+[[package]]
+name = "janus-backend-windows"
+version = "0.3.0"
+dependencies = [
+ "janus-core",
+ "windows",
+]
+
+[[package]]
+name = "janus-boot"
 version = "0.3.0"
 dependencies = [
  "anyhow",
@@ -2243,23 +2260,6 @@ dependencies = [
  "system_shutdown",
  "tempfile",
  "toml 1.2.2+spec-1.1.0",
- "windows",
-]
-
-[[package]]
-name = "janus-backend-linux"
-version = "0.3.0"
-dependencies = [
- "janus-core",
- "libc",
- "tempfile",
-]
-
-[[package]]
-name = "janus-backend-windows"
-version = "0.3.0"
-dependencies = [
- "janus-core",
  "windows",
 ]
 

@@ -37,7 +37,7 @@ pub(crate) fn print_entries(
 
     println!("{:<10} {:<34} 状态", "编号", "名称");
     if entries.is_empty() {
-        println!("（没有可显示的启动项；--all 可查看全部，janus settings 可调整显示设置）");
+        println!("（没有可显示的启动项；--all 可查看全部，janus-boot settings 可调整显示设置）");
         return;
     }
     for e in entries {
@@ -49,7 +49,7 @@ pub(crate) fn print_entries(
     }
 }
 
-/// `janus update` 的进度渲染：进度行用 \r 原地刷新，阶段切换时换行输出。
+/// `janus-boot update` 的进度渲染：进度行用 \r 原地刷新，阶段切换时换行输出。
 pub(crate) fn progress_printer() -> impl FnMut(UpdateEvent) {
     let mut last_was_progress = false;
     move |event| match event {

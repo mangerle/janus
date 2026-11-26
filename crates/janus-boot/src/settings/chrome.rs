@@ -44,7 +44,7 @@ pub(crate) fn titlebar_ui(
                 )));
                 ui.add_space(2.0);
                 ui.add(egui::Label::new(
-                    egui::RichText::new("Janus").size(15.5).strong(),
+                    egui::RichText::new("Janus Boot").size(15.5).strong(),
                 ));
                 ui.add(egui::Label::new(
                     egui::RichText::new("设置").size(14.0).weak(),

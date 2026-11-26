@@ -103,7 +103,7 @@ fn make_reload_entries(
     })
 }
 
-/// 打开设置窗口：以子进程运行 `janus settings`，让 winit 事件循环始终位于
+/// 打开设置窗口：以子进程运行 `janus-boot settings`，让 winit 事件循环始终位于
 /// 子进程主线程——winit 0.30 在 Linux 上禁止非主线程初始化事件循环，直接在
 /// 托盘线程内起 eframe 会 panic。子进程退出即窗口关闭，托盘随后重载配置；
 /// 同一时刻只允许一个设置窗口。
@@ -281,7 +281,7 @@ fn windows_confirm(msg: &str) -> bool {
     };
 
     let msg_w = janus_core::to_wide_null(msg);
-    let title_w = janus_core::to_wide_null("Janus 启动切换");
+    let title_w = janus_core::to_wide_null("Janus Boot 启动切换");
     unsafe {
         MessageBoxW(
             None,

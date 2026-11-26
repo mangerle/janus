@@ -68,7 +68,7 @@ fn ensure_std_handle(which: STD_HANDLE, device: PCWSTR) {
 /// 无控制台时以弹窗展示错误，保证托盘启动失败等致命问题用户可感知。
 pub(crate) fn show_error_dialog(message: &str) {
     let message_w = janus_core::to_wide_null(message);
-    let title_w = janus_core::to_wide_null("Janus 错误");
+    let title_w = janus_core::to_wide_null("Janus Boot 错误");
     // SAFETY: 传入的字符串缓冲区在调用期间保持存活且以 NUL 结尾
     unsafe {
         MessageBoxW(

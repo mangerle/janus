@@ -1,6 +1,6 @@
 [package]
-name = "janus"
-description = "Janus：跨平台 UEFI 启动切换工具（托盘 + CLI）"
+name = "janus-boot"
+description = "Janus Boot：跨平台 UEFI 启动切换工具（托盘 + CLI）"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 authors.workspace = true
 
 [[bin]]
-name = "janus"
+name = "janus-boot"
 path = "src/main.rs"
 
 [dependencies]
@@ -41,7 +41,7 @@ windows = { workspace = true, features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
-# Debian 打包（cargo-deb）。构建：cargo deb -p janus --no-build
+# Debian 打包（cargo-deb）。构建：cargo deb -p janus-boot --no-build
 # 发版时需向 packaging/linux/deb/changelog 头部追加与 workspace 版本一致的条目。
 [package.metadata.deb]
 maintainer = "wangle <wangle@agree.com.cn>"
@@ -56,33 +56,33 @@ changelog = "../../packaging/linux/deb/changelog"
 # Linux 二进制为纯 Rust 实现（ksni/zbus 纯 D-Bus，无 -sys 依赖），运行时仅依赖 glibc
 depends = "libc6, libgcc-s1"
 extended-description = """\
-Janus is a cross-platform UEFI boot switcher written in Rust. It writes the \
+Janus Boot is a cross-platform UEFI boot switcher written in Rust. It writes the \
 BootNext firmware variable and reboots, so the next boot lands directly in \
 the chosen OS (Windows <-> Linux). Ships as a CLI and a tray-resident app \
 with Ed25519-signed self-updates."""
 assets = [
     # 二进制：cargo-deb 用这个前缀识别需要编译的目标，切勿改成实际路径。
-    ["target/release/janus", "usr/bin/janus", "755"],
+    ["target/release/janus-boot", "usr/bin/janus-boot", "755"],
     ["../../packaging/linux/com.github.mangerle.janus.desktop", "usr/share/applications/com.github.mangerle.janus.desktop", "644"],
     # 图标只随一份 SVG 进 hicolor 主题的 scalable 目录：主题名与 .desktop 的
     # Icon 键（com.github.mangerle.janus）逐字对应，桌面环境按目标尺寸矢量出图。
     ["../../logo/janus-logo.svg", "usr/share/icons/hicolor/scalable/apps/com.github.mangerle.janus.svg", "644"],
-    # cargo-deb 会把 usr/share/man/ 下的资产自动 gzip 为 janus.1.gz（Debian
+    # cargo-deb 会把 usr/share/man/ 下的资产自动 gzip 为 janus-boot.1.gz（Debian
     # 策略要求 man 页压缩存放），源文件保持纯文本即可。
-    ["../../packaging/linux/deb/janus.1", "usr/share/man/man1/janus.1", "644"],
+    ["../../packaging/linux/deb/janus-boot.1", "usr/share/man/man1/janus-boot.1", "644"],
     # AppStream 元数据：软件中心据此展示应用；id 与桌面条目、图标名逐字一致。
     ["../../packaging/linux/com.github.mangerle.janus.metainfo.xml", "usr/share/metainfo/com.github.mangerle.janus.metainfo.xml", "644"],
-    ["../../README.md", "usr/share/doc/janus/README.md", "644"],
+    ["../../README.md", "usr/share/doc/janus-boot/README.md", "644"],
 ]
 
 # cargo-packager 元数据：Windows NSIS 安装包与 Linux AppImage 共用；
 # DEB 仍由上面的 cargo-deb 段维护，两者字段口径不同，刻意不强行合并。
 [package.metadata.packager]
-product-name = "Janus"
+product-name = "Janus Boot"
 identifier = "com.github.mangerle.janus"
 category = "Utility"
 description = "Cross-platform UEFI boot switcher (BootNext + reboot, tray + CLI)"
-long-description = "Janus 是一款用 Rust 编写的跨平台 UEFI 启动切换工具：写入 BootNext 并重启，一键进入另一个系统。托盘常驻 + CLI 双形态，Ed25519 签名自更新，不依赖 efibootmgr / bcdedit。"
+long-description = "Janus Boot 是一款用 Rust 编写的跨平台 UEFI 启动切换工具：写入 BootNext 并重启，一键进入另一个系统。托盘常驻 + CLI 双形态，Ed25519 签名自更新，不依赖 efibootmgr / bcdedit。"
 icons = [
     "../../packaging/icons/32x32.png",
     "../../packaging/icons/64x64.png",

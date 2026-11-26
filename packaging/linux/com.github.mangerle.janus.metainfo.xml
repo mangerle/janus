@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- AppStream 元数据：软件中心（GNOME Software / KDE Discover）据此展示 Janus。
+<!-- AppStream 元数据：软件中心（GNOME Software / KDE Discover）据此展示 Janus Boot。
      id、launchable 与 .desktop 文件、Icon 键逐字一致（com.github.mangerle.janus）。 -->
 <component type="desktop-application">
   <id>com.github.mangerle.janus</id>
-  <name>Janus</name>
+  <name>Janus Boot</name>
   <summary>跨平台 UEFI 启动切换工具（Windows ↔ Linux 一键切换）</summary>
   <project_license>MIT</project_license>
   <metadata_license>MIT</metadata_license>
@@ -15,7 +15,7 @@
 
   <description>
     <p>
-      Janus 写入 UEFI 固件的 BootNext 变量并重启，下次开机直接进入选定的系统，
+      Janus Boot 写入 UEFI 固件的 BootNext 变量并重启，下次开机直接进入选定的系统，
       免去开机时按启动菜单快捷键。支持 Windows ↔ Linux 双向切换，托盘常驻与
       CLI 双形态。
     </p>
@@ -30,13 +30,13 @@
 
   <launchable type="desktop-id">com.github.mangerle.janus.desktop</launchable>
   <provides>
-    <binary>janus</binary>
+    <binary>janus-boot</binary>
   </provides>
 
   <releases>
     <release version="0.3.0" date="2026-11-25">
       <description>
-        <p>新增跨平台开机自启（CLI 与设置窗口开关），进一步优化代码结构与错误可观测性。</p>
+        <p>包名与可执行文件更名为 janus-boot，避免与 Ubuntu 的 WebRTC Janus 冲突；新增跨平台开机自启，并进一步优化代码结构与错误可观测性。</p>
       </description>
     </release>
     <release version="0.2.0" date="2026-11-25">

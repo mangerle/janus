@@ -1,6 +1,6 @@
 [package]
 name = "janus-backend-windows"
-description = "Janus Windows 后端：基于 Win32 固件环境变量 API 的 UEFI 启动项管理"
+description = "Janus Boot Windows 后端：基于 Win32 固件环境变量 API 的 UEFI 启动项管理"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -17,6 +17,11 @@ use anyhow::{anyhow, Context};
 use janus_core::{BootEntry, BootId};
 use serde::{Deserialize, Serialize};
 
+/// 当前应用配置目录名；与可执行文件名保持一致，避免与 Ubuntu 的 WebRTC Janus 混淆。
+const APP_DIR_NAME: &str = "janus-boot";
+/// 重命名前的配置目录名，仅用于无损迁移既有用户设置。
+const LEGACY_APP_DIR_NAME: &str = "janus";
+
 /// 单个启动项的显示设置。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct EntrySettings {
@@ -39,9 +44,9 @@ pub(crate) struct Settings {
 }
 
 impl Settings {
-    /// 配置文件路径：Linux 为 `$XDG_CONFIG_HOME/janus/config.toml`
-    /// （未设置时 `~/.config/janus/config.toml`），Windows 为
-    /// `%APPDATA%\janus\config.toml`。
+    /// 配置文件路径：Linux 为 `$XDG_CONFIG_HOME/janus-boot/config.toml`
+    /// （未设置时 `~/.config/janus-boot/config.toml`），Windows 为
+    /// `%APPDATA%\janus-boot\config.toml`。
     ///
     /// # Errors
     /// 无法确定用户配置目录（`HOME`/`APPDATA` 均缺失）时返回错误。
@@ -73,12 +78,44 @@ impl Settings {
     /// 从默认位置读取设置，同时返回配置文件路径（无法确定路径时为 `None`）。
     pub(crate) fn load_from_default_location() -> (Self, Option<PathBuf>) {
         match Self::config_file_path() {
-            Ok(path) => (Self::load_or_default(&path), Some(path)),
+            Ok(path) => {
+                let legacy_path = legacy_config_file_path();
+                let settings = Self::load_or_migrate(&path, legacy_path.as_deref());
+                (settings, Some(path))
+            }
             Err(e) => {
                 log::warn!("无法确定配置文件位置，已使用默认设置：{e:#}");
                 (Self::default(), None)
             }
         }
+    }
+
+    /// 优先读取新配置；新配置不存在而旧配置存在时，读取旧配置并原子复制到新位置。
+    ///
+    /// 迁移失败不会阻塞应用启动，而是继续使用已读取的旧设置并记录告警。
+    fn load_or_migrate(path: &Path, legacy_path: Option<&Path>) -> Self {
+        if path.exists() {
+            return Self::load_or_default(path);
+        }
+        let Some(legacy_path) = legacy_path.filter(|legacy| legacy.exists()) else {
+            return Self::default();
+        };
+
+        let settings = Self::load_or_default(legacy_path);
+        if let Err(e) = settings.save(path) {
+            log::warn!(
+                "迁移旧配置失败，将继续使用原配置：源={}，目标={}，原因={e:#}",
+                legacy_path.display(),
+                path.display()
+            );
+        } else {
+            log::info!(
+                "已迁移旧配置：源={}，目标={}",
+                legacy_path.display(),
+                path.display()
+            );
+        }
+        settings
     }
 
     /// 原子写回配置文件：在同目录创建唯一临时文件写入后原子替换，避免半截文件与并发覆盖。
@@ -157,16 +194,28 @@ pub(crate) fn xdg_config_root() -> anyhow::Result<PathBuf> {
 
 /// 按平台解析用户配置目录。
 fn config_dir() -> anyhow::Result<PathBuf> {
+    Ok(config_root()?.join(APP_DIR_NAME))
+}
+
+/// 重命名前使用的配置文件路径；无法确定配置根目录时返回 `None`。
+fn legacy_config_file_path() -> Option<PathBuf> {
+    config_root()
+        .ok()
+        .map(|root| root.join(LEGACY_APP_DIR_NAME).join("config.toml"))
+}
+
+/// 按平台解析用户配置根目录。
+fn config_root() -> anyhow::Result<PathBuf> {
     #[cfg(target_os = "linux")]
     {
-        Ok(xdg_config_root()?.join("janus"))
+        xdg_config_root()
     }
     #[cfg(target_os = "windows")]
     {
         let appdata = std::env::var_os("APPDATA")
             .filter(|v| !v.is_empty())
             .ok_or_else(|| anyhow!("无法确定用户配置目录：APPDATA 未设置"))?;
-        Ok(PathBuf::from(appdata).join("janus"))
+        Ok(PathBuf::from(appdata))
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
@@ -256,12 +305,26 @@ mod tests {
     #[test]
     fn save_and_load_roundtrip() {
         let dir = tempfile::tempdir().expect("创建临时目录失败");
-        let path = dir.path().join("janus").join("config.toml");
+        let path = dir.path().join("janus-boot").join("config.toml");
         let settings = sample_settings();
         settings.save(&path).expect("保存设置失败");
 
         let loaded = Settings::load(&path).expect("读取设置失败");
         assert_eq!(loaded, settings);
+    }
+
+    #[test]
+    fn legacy_config_is_migrated_to_new_location() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let legacy = dir.path().join("janus").join("config.toml");
+        let current = dir.path().join("janus-boot").join("config.toml");
+        let settings = sample_settings();
+        settings.save(&legacy).expect("保存旧配置失败");
+
+        let loaded = Settings::load_or_migrate(&current, Some(&legacy));
+
+        assert_eq!(loaded, settings);
+        assert!(current.exists());
     }
 
     #[test]

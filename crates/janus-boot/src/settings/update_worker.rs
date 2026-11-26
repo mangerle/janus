@@ -69,19 +69,22 @@ impl UpdateState {
 
     pub(crate) fn status_text(&self) -> String {
         match self {
-            Self::Idle => format!("Janus v{CURRENT_VERSION}"),
-            Self::Checking => format!("Janus v{CURRENT_VERSION} · 正在检查更新…"),
-            Self::UpToDate => format!("Janus v{CURRENT_VERSION} · 已是最新版本"),
+            Self::Idle => format!("Janus Boot v{CURRENT_VERSION}"),
+            Self::Checking => format!("Janus Boot v{CURRENT_VERSION} · 正在检查更新…"),
+            Self::UpToDate => format!("Janus Boot v{CURRENT_VERSION} · 已是最新版本"),
             Self::Available { info, .. } => {
-                format!("Janus v{CURRENT_VERSION} · 发现新版本 v{}", info.version())
+                format!(
+                    "Janus Boot v{CURRENT_VERSION} · 发现新版本 v{}",
+                    info.version()
+                )
             }
             Self::Working { version, .. } => {
-                format!("Janus v{CURRENT_VERSION} · 正在更新到 v{version}…")
+                format!("Janus Boot v{CURRENT_VERSION} · 正在更新到 v{version}…")
             }
             Self::Installed { version } => {
-                format!("Janus v{CURRENT_VERSION} · 已安装 v{version}，重启后生效")
+                format!("Janus Boot v{CURRENT_VERSION} · 已安装 v{version}，重启后生效")
             }
-            Self::Failed { .. } => format!("Janus v{CURRENT_VERSION} · 更新检查失败"),
+            Self::Failed { .. } => format!("Janus Boot v{CURRENT_VERSION} · 更新检查失败"),
         }
     }
 
@@ -212,8 +215,8 @@ pub(crate) fn with_error_hint(message: String) -> String {
         || message.contains("os error 13");
     if denied {
         return format!(
-            "{message}\n安装目录不可写：请以管理员/root 重新运行 janus update，\
-             或把 janus 安装到用户可写目录。"
+            "{message}\n安装目录不可写：请以管理员/root 重新运行 janus-boot update，\
+             或把 janus-boot 安装到用户可写目录。"
         );
     }
     if message.contains("404") && message.contains("latest.json") {

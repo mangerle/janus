@@ -1,6 +1,6 @@
 [package]
 name = "janus-tray"
-description = "Janus 系统托盘：tray-icon + tao 事件循环"
+description = "Janus Boot 系统托盘：tray-icon + tao 事件循环"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

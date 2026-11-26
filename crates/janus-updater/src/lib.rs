@@ -1,9 +1,9 @@
-//! Janus 自更新封装（基于 [shipup]）。
+//! Janus Boot 自更新封装（基于 [shipup]）。
 //!
 //! # 设计要点
 //! - 清单必须通过内嵌 Ed25519 公钥验签，下载包再做 SHA-256 校验；未签名的
 //!   伪造清单在进入安装流程前就会被拒绝。
-//! - 全部提供阻塞入口：`janus` 是低频使用的 CLI/托盘工具，自更新又是低频
+//! - 全部提供阻塞入口：`janus-boot` 是低频使用的 CLI/托盘工具，自更新又是低频
 //!   重操作，不为它引入异步运行时。
 //! - 公钥随二进制编译；私钥只存在于维护者本机 `keys/`（已 gitignore）与
 //!   GitHub Secret `SHIPUP_PRIVATE_KEY`，用于发布流水线签名。
@@ -17,10 +17,10 @@ use std::time::Duration;
 use shipup::{HealthCheckStatus, Update, UpdateEvent as ShipupEvent, Updater};
 use thiserror::Error;
 
-/// Janus 官方发布包 Ed25519 签名验证公钥（Base64 编码）。
+/// Janus Boot 官方发布包 Ed25519 签名验证公钥（Base64 编码）。
 pub const UPDATE_PUBLIC_KEY: &str = "FO/QTz9rWVwSPKO7krjsJiwQeVRI6wgdkqEng7D8Wic=";
 
-/// Janus 官方 GitHub Releases 最新版本清单端点。
+/// Janus Boot 官方 GitHub Releases 最新版本清单端点。
 pub const DEFAULT_MANIFEST_URL: &str =
     "https://github.com/mangerle/janus/releases/latest/download/latest.json";
 

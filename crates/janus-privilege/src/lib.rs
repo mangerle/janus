@@ -1,4 +1,4 @@
-//! Janus 权限提升模块。
+//! Janus Boot 权限提升模块。
 //!
 //! 写 UEFI 变量需要 root / 管理员权限：
 //! - Linux：检测 `euid == 0`；否则优先用 `pkexec`（polkit 图形密码框）

@@ -5,7 +5,7 @@ use thiserror::Error;
 /// 便捷 Result 别名。
 pub type Result<T> = std::result::Result<T, JanusError>;
 
-/// Janus 全局错误类型。
+/// Janus Boot 全局错误类型。
 #[derive(Debug, Error)]
 pub enum JanusError {
     /// 系统不是 UEFI 启动，或 efivarfs 不可用。

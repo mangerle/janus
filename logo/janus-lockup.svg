@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 548 200">
   <!-- 由 logo/gen-lockup.py 生成：字标为 DejaVu Sans 轮廓路径，勿手改 -->
   <g transform="translate(8,6) scale(0.734)">
-<!-- Janus 现代几何双门徽标：对称双弧箭翼象征双系统切换，中央圆角菱形门轴代表 UEFI 固件层 -->
+<!-- Janus Boot 现代几何双门徽标：对称双弧箭翼象征双系统切换，中央圆角菱形门轴代表 UEFI 固件层 -->
   <rect x="16" y="16" width="224" height="224" rx="58" fill="#111827"/>
   <rect x="17.5" y="17.5" width="221" height="221" rx="56.5" fill="none" stroke="#7C8CFF" stroke-opacity="0.28" stroke-width="3"/>
 

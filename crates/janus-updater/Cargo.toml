@@ -1,6 +1,6 @@
 [package]
 name = "janus-updater"
-description = "Janus 自更新：基于 shipup 的 Ed25519 签名清单校验、下载安装与崩溃回滚"
+description = "Janus Boot 自更新：基于 shipup 的 Ed25519 签名清单校验、下载安装与崩溃回滚"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

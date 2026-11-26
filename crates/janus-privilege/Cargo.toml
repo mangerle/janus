@@ -1,6 +1,6 @@
 [package]
 name = "janus-privilege"
-description = "Janus 权限提升：Linux pkexec/sudo，Windows UAC (runas)"
+description = "Janus Boot 权限提升：Linux pkexec/sudo，Windows UAC (runas)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

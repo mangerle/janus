@@ -1,13 +1,13 @@
-//! Janus —— 跨平台 UEFI 启动切换工具。
+//! Janus Boot —— 跨平台 UEFI 启动切换工具。
 //!
 //! 典型用法：
-//! - `janus`                          不带子命令时默认常驻系统托盘
-//! - `janus list`                     列出启动项（应用显示设置）
-//! - `janus next ubuntu`              下次启动进入 ubuntu（不重启）
-//! - `janus reboot --into 1`          设置 BootNext 并立即重启
-//! - `janus settings`                 图形设置：选择显示项与自定义名称
-//! - `janus tray`                     显式启动系统托盘
-//! - `janus update`                   自更新（Ed25519 签名清单校验）
+//! - `janus-boot`                     不带子命令时默认常驻系统托盘
+//! - `janus-boot list`                列出启动项（应用显示设置）
+//! - `janus-boot next ubuntu`         下次启动进入 ubuntu（不重启）
+//! - `janus-boot reboot --into 1`     设置 BootNext 并立即重启
+//! - `janus-boot settings`            图形设置：选择显示项与自定义名称
+//! - `janus-boot tray`                显式启动系统托盘
+//! - `janus-boot update`              自更新（Ed25519 签名清单校验）
 //! - `--dry-run`                      模拟模式，不触碰真实固件
 //! - `--all`                          忽略显示设置，展示全部启动项与固件原名
 

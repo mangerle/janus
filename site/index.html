@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Janus — Windows ↔ Linux 双系统一键切换</title>
-<meta name="description" content="Janus 是用 Rust 编写的跨平台 UEFI 启动切换工具：写入 BootNext 并重启，一键进入另一个系统。托盘常驻、纯原生 API、Ed25519 签名自更新，不依赖 efibootmgr / bcdedit。">
+<title>Janus Boot — Windows ↔ Linux 双系统一键切换</title>
+<meta name="description" content="Janus Boot 是用 Rust 编写的跨平台 UEFI 启动切换工具：写入 BootNext 并重启，一键进入另一个系统。托盘常驻、纯原生 API、Ed25519 签名自更新，不依赖 efibootmgr / bcdedit。">
 <meta name="theme-color" content="#0D1117">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://mangerle.github.io/janus/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:title" content="Janus — Windows ↔ Linux 双系统一键切换">
+<meta property="og:title" content="Janus Boot — Windows ↔ Linux 双系统一键切换">
 <meta property="og:description" content="写入 UEFI BootNext 并重启，一键进入另一个系统。纯 Rust 原生实现，托盘常驻，签名自更新。">
 <meta property="og:url" content="https://mangerle.github.io/janus/">
 <meta property="og:image" content="https://mangerle.github.io/janus/assets/janus-social.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Janus — UEFI Boot Switcher">
+<meta name="twitter:title" content="Janus Boot — UEFI Boot Switcher">
 <meta name="twitter:description" content="写入 UEFI BootNext 并重启，一键进入另一个系统。">
 <meta name="twitter:image" content="https://mangerle.github.io/janus/assets/janus-social.png">
 <script>document.documentElement.classList.add('js');</script>
@@ -297,7 +297,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
 
 <header class="site-header">
   <div class="container nav-bar">
-    <a class="brand" href="#overview" data-go="0" aria-label="Janus 首页"><img src="favicon.svg" width="34" height="34" alt="">Janus</a>
+    <a class="brand" href="#overview" data-go="0" aria-label="Janus Boot 首页"><img src="favicon.svg" width="34" height="34" alt="">Janus Boot</a>
     <nav class="nav-links" aria-label="主导航">
       <button class="nav-link" type="button" data-go="0" data-range="0" aria-current="page">概览</button>
       <button class="nav-link" type="button" data-go="1" data-range="1">核心优势</button>
@@ -325,7 +325,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
 </nav>
 
 <main class="deck" id="main" tabindex="-1">
-  <section class="slide hero-slide is-active" id="overview" aria-label="Janus 概览">
+  <section class="slide hero-slide is-active" id="overview" aria-label="Janus Boot 概览">
     <div class="slide-inner hero-layout">
       <div class="hero-copy">
         <span class="kicker">Rust 原生 UEFI 启动切换</span>
@@ -343,7 +343,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
       </div>
       <div class="hero-visual">
         <div class="app-window" aria-hidden="true">
-          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">GNOME Shell · janus（AppIndicator）</span></div>
+          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">GNOME Shell · janus-boot（AppIndicator）</span></div>
           <div class="app-body">
             <aside class="tray-pane">
               <div class="tray-caption">托盘弹出菜单</div>
@@ -364,14 +364,14 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
               </div>
             </aside>
             <div class="app-main">
-              <div class="app-tabs"><span class="app-tab active"><i class="tab-dot"></i>janus — 终端</span></div>
+              <div class="app-tabs"><span class="app-tab active"><i class="tab-dot"></i>janus-boot — 终端</span></div>
               <div class="terminal-pane">
                 <div class="pane-head"><span>wangle@ubuntu</span><span>efivarfs</span></div>
-                <div class="terminal-line"><span class="prompt">$</span> janus list</div>
+                <div class="terminal-line"><span class="prompt">$</span> janus-boot list</div>
                 <div class="terminal-line"><span class="dim">Boot0000  ubuntu                       活跃</span></div>
                 <div class="terminal-line"><span class="dim">Boot2001  EFI USB Device               活跃</span></div>
                 <div class="terminal-line"><span class="dim">Boot0001  Windows Boot Manager         活跃</span></div>
-                <div class="terminal-line"><span class="prompt">$</span> janus reboot --into 1</div>
+                <div class="terminal-line"><span class="prompt">$</span> janus-boot reboot --into 1</div>
                 <div class="terminal-line"><span class="info">已设置下次启动：Boot0001（Windows Boot Manager）。</span></div>
                 <div class="terminal-line"><span class="ok">polkit 已授权 · BootNext 写入成功 · 正在重启…</span></div>
                 <div class="terminal-line"><span class="prompt">$</span> <span class="terminal-cursor"></span></div>
@@ -394,7 +394,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
       <div class="section-heading">
         <span class="kicker">核心优势</span>
         <h2 class="heading-2">切换系统，不该在开机时赌手速</h2>
-        <p class="body-md">双系统用户的日常是：重启 → 盯紧屏幕 → 狂按 F8。Janus 把这件事变成托盘里的一次点击——固件层面的 BootNext 机制让下一次启动直接落点在你选的系统上。</p>
+        <p class="body-md">双系统用户的日常是：重启 → 盯紧屏幕 → 狂按 F8。Janus Boot 把这件事变成托盘里的一次点击——固件层面的 BootNext 机制让下一次启动直接落点在你选的系统上。</p>
       </div>
       <div class="benefit-grid">
         <article class="benefit-card"><div class="benefit-top"><span class="icon-box"><svg class="icon"><use href="#i-switch"/></svg></span><span class="index-pill">01</span></div><h3>一次点击 = 切换 + 重启</h3><p>托盘菜单写入 BootNext 并立即重启；polkit 密码框与确认对话框就是你的反悔按钮，点取消即安全退出。</p><span class="card-caption">固件级下次启动指向</span></article>
@@ -431,7 +431,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
       <div class="feature-copy">
         <span class="kicker">工作原理</span>
         <h2 class="heading-3">三个经典的坑，都替你踩过了</h2>
-        <p class="body-lg">写 UEFI 变量的门槛不在 API，而在权限、编码与内核保护。janus 把这些全部封装在平台后端 crate 里，对外只暴露统一的 BootManager 接口。</p>
+        <p class="body-lg">写 UEFI 变量的门槛不在 API，而在权限、编码与内核保护。janus-boot 把这些全部封装在平台后端 crate 里，对外只暴露统一的 BootManager 接口。</p>
         <ul class="feature-list">
           <li><svg class="icon"><use href="#i-check"/></svg><span>BootOrder 决定展示顺序，缺失或损坏的条目自动跳过。</span></li>
           <li><svg class="icon"><use href="#i-check"/></svg><span>BIOS/Legacy 机器会在启动时被识别，并给出明确提示。</span></li>
@@ -457,7 +457,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
       </div>
       <div class="media-card">
         <div class="media-card-inner" aria-hidden="true">
-          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">janus tray · dry-run</span></div>
+          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">janus-boot tray · dry-run</span></div>
           <div class="board" style="grid-template-columns:1fr">
             <div class="kv-panel" style="gap:0">
               <div class="kv-title">托盘菜单（动作后自动重建）</div>
@@ -473,7 +473,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
                 <div class="menu-item">设置</div>
                 <div class="menu-item">退出</div>
               </div>
-              <p style="margin:14px 0 0;font-size:11px;color:var(--muted)">点击"重启并进入" → polkit 密码框 → <code style="color:#D6DDEB">pkexec janus _apply 0002 --reboot</code> → 重启。</p>
+              <p style="margin:14px 0 0;font-size:11px;color:var(--muted)">点击"重启并进入" → polkit 密码框 → <code style="color:#D6DDEB">pkexec janus-boot _apply 0002 --reboot</code> → 重启。</p>
             </div>
           </div>
         </div>
@@ -485,7 +485,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
     <div class="slide-inner feature-layout reverse">
       <div class="media-card">
         <div class="media-card-inner" aria-hidden="true">
-          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">janus update · 信任链</span></div>
+          <div class="app-titlebar"><div class="traffic"><i></i><i></i><i></i></div><span class="app-title">janus-boot update · 信任链</span></div>
           <div class="board">
             <div class="board-stack">
               <div class="board-item"><span class="icon-box"><svg class="icon"><use href="#i-shield"/></svg></span><div><h3>① 清单验签</h3><p>latest.json 由 Ed25519 签名，公钥内嵌于二进制。</p></div></div>
@@ -508,7 +508,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
       <div class="feature-copy">
         <span class="kicker">自更新</span>
         <h2 class="heading-3">更新前先验签，坏版本会自己回去</h2>
-        <p class="body-lg">janus update 基于 shipup 构建：从签名清单检查新版本、下载安装包、逐层校验后原子替换二进制。伪造或被篡改的更新在进入安装流程前就会被拒绝。</p>
+        <p class="body-lg">janus-boot update 基于 shipup 构建：从签名清单检查新版本、下载安装包、逐层校验后原子替换二进制。伪造或被篡改的更新在进入安装流程前就会被拒绝。</p>
         <ul class="feature-list">
           <li><svg class="icon"><use href="#i-check"/></svg><span>签名私钥只存在于 GitHub Secret 与维护者本机，永不入库。</span></li>
           <li><svg class="icon"><use href="#i-check"/></svg><span>发布流水线签名后还会用内嵌公钥做一次复验，双重防呆。</span></li>
@@ -541,13 +541,13 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
         <span class="kicker">开始使用</span>
         <h2 class="heading-2">让下一次重启，<span class="gradient-text">落点由你决定</span></h2>
         <p>从最新 Release 下载单文件解压即用，或用 Cargo 从源码安装。无需注册账号，固件状态与更新凭据都留在你的设备上。</p>
-        <div class="cta-actions"><a class="button button-amber" href="https://github.com/mangerle/janus/releases/latest"><svg class="icon" style="width:19px;height:19px"><use href="#i-download"/></svg>下载 Janus</a><a class="button button-secondary" href="https://github.com/mangerle/janus"><svg class="icon" style="width:19px;height:19px"><use href="#i-github"/></svg>查看源码</a></div>
+        <div class="cta-actions"><a class="button button-amber" href="https://github.com/mangerle/janus/releases/latest"><svg class="icon" style="width:19px;height:19px"><use href="#i-download"/></svg>下载 Janus Boot</a><a class="button button-secondary" href="https://github.com/mangerle/janus"><svg class="icon" style="width:19px;height:19px"><use href="#i-github"/></svg>查看源码</a></div>
         <div class="cta-meta"><span><svg class="icon"><use href="#i-flask"/></svg>--dry-run 零风险体验</span><span><svg class="icon"><use href="#i-check"/></svg>MIT 开源</span></div>
       </div>
       <div class="faq-list">
-        <details open><summary>会改动我的默认引导顺序吗？</summary><p>不会。Janus 只写入一次性的 BootNext 变量，BootOrder 保持不动；下一次启动走你选的系统，之后固件自动恢复原有顺序。</p></details>
+        <details open><summary>会改动我的默认引导顺序吗？</summary><p>不会。Janus Boot 只写入一次性的 BootNext 变量，BootOrder 保持不动；下一次启动走你选的系统，之后固件自动恢复原有顺序。</p></details>
         <details><summary>需要 root / 管理员权限吗？</summary><p>写固件变量需要。Linux 上按动作经 pkexec 弹 polkit 密码框（托盘本身以普通用户运行）；Windows 在启动时经 UAC 提权一次，整个会话只弹一次。</p></details>
-        <details><summary>支持 BIOS / Legacy 启动的机器吗？</summary><p>不支持。Janus 启动时会检测 efivarfs（Linux）或固件变量接口（Windows），BIOS/Legacy 环境会得到明确提示。</p></details>
+        <details><summary>支持 BIOS / Legacy 启动的机器吗？</summary><p>不支持。Janus Boot 启动时会检测 efivarfs（Linux）或固件变量接口（Windows），BIOS/Legacy 环境会得到明确提示。</p></details>
         <details><summary>自更新如何保证不被劫持？</summary><p>更新清单用项目专属 Ed25519 密钥签名，公钥编译进二进制；下载包再做 SHA-256 与包签名校验。升级后连续两次启动失败会自动回滚到上一版本。</p></details>
         <details><summary>Linux 托盘图标不显示怎么办？</summary><p>需要桌面环境支持 StatusNotifierItem：Ubuntu（自带 AppIndicator 扩展）与 KDE 默认满足；同时会话中需要有 polkit agent。</p></details>
       </div>
@@ -558,7 +558,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
 <footer class="site-footer">
   <div class="progress-rail" aria-hidden="true"><i class="progress-bar" id="progressBar"></i></div>
   <div class="container footer-inner">
-    <span class="footer-brand">Janus · MIT · 纯原生 UEFI 切换</span>
+    <span class="footer-brand">Janus Boot · MIT · 纯原生 UEFI 切换</span>
     <span class="footer-hint">滚轮、方向键或触摸切换介绍</span>
     <div class="deck-controls">
       <button class="icon-button prev" id="prevSlide" type="button" aria-label="上一个介绍"><svg class="icon"><use href="#i-arrow"/></svg></button>
@@ -737,7 +737,7 @@ body.menu-open .mobile-menu button{opacity:1;transform:none}
 {
   "@context":"https://schema.org",
   "@type":"SoftwareApplication",
-  "name":"Janus",
+  "name":"Janus Boot",
   "applicationCategory":"UtilityApplication",
   "operatingSystem":"Linux, Windows",
   "description":"基于 Rust 的跨平台 UEFI 启动切换工具：写入 BootNext 并重启，一键进入另一个系统。托盘常驻、CLI 双形态，Ed25519 签名自更新。",

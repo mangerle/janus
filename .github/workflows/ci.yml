@@ -17,7 +17,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Linux 质量门禁。janus 在 Linux 目标为纯 Rust（ksni/zbus 无 -sys 依赖），
+  # Linux 质量门禁。Janus Boot 在 Linux 目标为纯 Rust（ksni/zbus 无 -sys 依赖），
   # 无需安装任何 apt 图形/数据库开发包。
   quality-linux:
     name: Linux 质量门禁

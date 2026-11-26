@@ -3,7 +3,7 @@
 //! # 设计原理（Why）
 //! - 托盘与 CLI 共用同一份 `config.toml`，窗口只负责编辑文件，不持有运行时
 //!   状态；保存后由调用方（托盘）重新读盘并重建菜单，避免两处状态不同步。
-//! - 托盘侧通过子进程运行 `janus settings` 打开窗口：winit 0.30 在 Linux 上
+//! - 托盘侧通过子进程运行 `janus-boot settings` 打开窗口：winit 0.30 在 Linux 上
 //!   禁止在非主线程初始化事件循环，子进程方案让窗口始终位于其主线程，同时
 //!   避免与托盘的 tao 事件循环相互嵌套。
 //! - 主题跟随系统浅色/深色，但使用官网同一套品牌色（靛蓝强调、深蓝面板）；
@@ -83,7 +83,7 @@ pub(crate) fn run_settings_window(
         ..Default::default()
     };
     eframe::run_native(
-        "Janus 设置",
+        "Janus Boot 设置",
         options,
         Box::new(move |cc| {
             // Linux 上 winit 的系统主题恒为 None，需自行探测后显式设置
@@ -218,9 +218,9 @@ impl SettingsApp {
                         egui::RichText::new("开机自动启动托盘").size(13.0).strong(),
                     ));
                     let desc = if cfg!(target_os = "windows") {
-                        "登录 Windows 时自动运行 Janus 托盘（启用 UAC 时将弹出提权确认）"
+                        "登录 Windows 时自动运行 Janus Boot 托盘（启用 UAC 时将弹出提权确认）"
                     } else {
-                        "登录桌面会话时自动运行 Janus 托盘（XDG Autostart）"
+                        "登录桌面会话时自动运行 Janus Boot 托盘（XDG Autostart）"
                     };
                     ui.add(egui::Label::new(
                         egui::RichText::new(desc).size(11.0).weak(),

@@ -175,7 +175,7 @@ mod imp {
 mod imp {
     use janus_core::{BootEntry, BootId, BootManager, JanusError, Result};
 
-    const UNSUPPORTED: &str = "janus 的 Win32 固件变量后端仅支持 Windows";
+    const UNSUPPORTED: &str = "Janus Boot 的 Win32 固件变量后端仅支持 Windows";
 
     /// 非 Windows 平台的占位实现。
     #[derive(Debug, Clone, Default)]

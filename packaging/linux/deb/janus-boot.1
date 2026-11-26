@@ -1,12 +1,12 @@
-.TH JANUS 1 "2026-11-25" "janus 0.3.0" "User Commands"
+.TH JANUS\-BOOT 1 "2026-11-25" "janus-boot 0.3.0" "User Commands"
 .SH NAME
-janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常驻 + CLI）
+janus-boot \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常驻 + CLI）
 .SH SYNOPSIS
-.B janus
+.B janus-boot
 .RI [ COMMAND ]
 .RI [ OPTIONS ]
 .SH DESCRIPTION
-.B janus
+.B janus-boot
 写入 UEFI 固件的
 .B BootNext
 变量并（可选）立即重启，使下一次开机直接进入选定的操作系统。
@@ -62,31 +62,25 @@ janus \- 跨平台 UEFI 启动切换工具（写 BootNext 并重启，托盘常�
 .TP
 .B --all
 全局开关：忽略显示设置，展示全部启动项并使用固件原名。
-.SH ENVIRONMENT
-.TP
-.B JANUS_MANIFEST_URL
-无（清单端点经
-.B --manifest
-指定；默认为 GitHub Releases 最新清单）。
 .SH FILES
 .TP
 .I /sys/firmware/efi/efivars/
 Linux 下的 UEFI 变量文件系统（efivarfs）。
 .TP
-.I $XDG_CONFIG_HOME/janus/config.toml
+.I $XDG_CONFIG_HOME/janus-boot/config.toml
 显示设置（隐藏项与自定义名称）；未设置
 .B XDG_CONFIG_HOME
 时为
-.IR ~/.config/janus/config.toml "。"
+.IR ~/.config/janus-boot/config.toml "。"
 .SH EXAMPLES
 .TP
-janus next ubuntu
+janus-boot next ubuntu
 下次启动进入 ubuntu。
 .TP
-janus reboot --into "Windows Boot Manager"
+janus-boot reboot --into "Windows Boot Manager"
 写入 BootNext 并立即重启进入 Windows。
 .TP
-janus --dry-run tray
+janus-boot --dry-run tray
 以模拟模式体验托盘，不触碰固件。
 .SH SEE ALSO
 .BR pkexec (1),

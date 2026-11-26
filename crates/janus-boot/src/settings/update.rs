@@ -143,7 +143,7 @@ impl UpdaterUi {
                 ui.add_space(4.0);
                 ui.label(
                     egui::RichText::new(format!(
-                        "v{version} 已安装。若当前仍在运行旧版本，请重启 janus（含托盘）后生效。"
+                        "v{version} 已安装。若当前仍在运行旧版本，请重启 janus-boot（含托盘）后生效。"
                     ))
                     .size(11.0),
                 );

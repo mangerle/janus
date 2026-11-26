@@ -1,4 +1,4 @@
-//! Janus 系统托盘模块。
+//! Janus Boot 系统托盘模块。
 //!
 //! 平台差异：
 //! - **Linux**：使用 tray-icon 的 `ksni` 后端（纯 D-Bus 的 StatusNotifierItem，
@@ -9,7 +9,7 @@
 //!
 //! # 设计原理（Why）
 //! 托盘本身不做提权：所有写固件的动作都通过 [`TrayActions`] 回调交由上层
-//! （janus 主程序）决定是直接执行、pkexec 提权还是 dry-run 模拟——这使
+//! （janus-boot 主程序）决定是直接执行、pkexec 提权还是 dry-run 模拟——这使
 //! 托盘层保持平台中立，权限策略集中在单一位置可审计。
 
 use std::sync::Arc;

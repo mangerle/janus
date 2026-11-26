@@ -155,14 +155,14 @@ fn find_by_display_name<'a>(
     })
 }
 
-/// `janus settings`：打开图形设置窗口；dry-run 下窗口只读，不写配置文件。
+/// `janus-boot settings`：打开图形设置窗口；dry-run 下窗口只读，不写配置文件。
 fn run_settings(cli: &Cli) -> anyhow::Result<()> {
     let mgr: Arc<dyn BootManager> = Arc::from(backend(cli)?);
     let path = Settings::config_file_path().context("无法确定配置文件位置")?;
     run_settings_window(mgr, &path, cli.dry_run)
 }
 
-/// `janus update`：检查 → 确认 → 下载验签 → 安装。
+/// `janus-boot update`：检查 → 确认 → 下载验签 → 安装。
 fn run_update(manifest: Option<&str>, check_only: bool, assume_yes: bool) -> anyhow::Result<()> {
     println!("当前版本 v{}，正在检查更新…", env!("CARGO_PKG_VERSION"));
     let Some(info) = janus_updater::check_update(manifest).map_err(update_error)? else {
@@ -197,13 +197,13 @@ fn run_update(manifest: Option<&str>, check_only: bool, assume_yes: bool) -> any
         .install(progress_printer())
         .map_err(update_error)?;
     println!(
-        "更新完成：v{} 已安装，下次运行 janus 即生效。",
+        "更新完成：v{} 已安装，下次运行 janus-boot 即生效。",
         downloaded.version()
     );
     Ok(())
 }
 
-/// `janus autostart`：查询、开启或关闭开机自启。
+/// `janus-boot autostart`：查询、开启或关闭开机自启。
 fn run_autostart(cli: &Cli, action: Option<AutostartAction>) -> anyhow::Result<()> {
     match action.unwrap_or(AutostartAction::Status) {
         AutostartAction::Status => {
@@ -254,7 +254,7 @@ fn update_error(e: janus_updater::UpdaterError) -> JanusError {
     JanusError::Other(e.to_string())
 }
 
-/// 特权 helper（`janus _apply`）：仅允许 root/管理员（或 dry-run）执行，
+/// 特权 helper（`janus-boot _apply`）：仅允许 root/管理员（或 dry-run）执行，
 /// 防止普通用户直接调用。
 fn run_apply(cli: &Cli, target: &str, reboot: bool) -> anyhow::Result<()> {
     if !cli.dry_run && !janus_privilege::is_elevated() {
