@@ -34,9 +34,14 @@
   </provides>
 
   <releases>
+    <release version="0.4.0" date="2026-11-26">
+      <description>
+        <p>包名、可执行文件、配置目录与发布产物更名为 janus-boot，避免与 Ubuntu 的 WebRTC Janus 冲突；旧配置会在首次启动时自动迁移。</p>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-11-25">
       <description>
-        <p>包名与可执行文件更名为 janus-boot，避免与 Ubuntu 的 WebRTC Janus 冲突；新增跨平台开机自启，并进一步优化代码结构与错误可观测性。</p>
+        <p>新增跨平台开机自启（CLI 与设置窗口开关），进一步优化代码结构与错误可观测性。</p>
       </description>
     </release>
     <release version="0.2.0" date="2026-11-25">

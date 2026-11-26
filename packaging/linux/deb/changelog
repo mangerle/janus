@@ -1,12 +1,17 @@
-janus-boot (0.3.0) unstable; urgency=medium
+janus-boot (0.4.0) unstable; urgency=medium
 
   * Debian 包名、可执行文件与配置目录更名为 janus-boot，避免与 Ubuntu 的 WebRTC Janus 冲突；旧配置会自动迁移。
-  * 新增跨平台开机自启（janus-boot autostart CLI 子命令与设置窗口开关）。
+
+ -- wangle <wangle@agree.com.cn>  Thu, 26 Nov 2026 00:00:00 +0800
+
+janus (0.3.0) unstable; urgency=medium
+
+  * 新增跨平台开机自启（janus autostart CLI 子命令与设置窗口开关）。
   * 拆分设置窗口状态逻辑至独立模块，完善损坏 BootNext 告警与目标解析。
 
  -- wangle <wangle@agree.com.cn>  Wed, 25 Nov 2026 21:45:00 +0800
 
-janus-boot (0.2.0) unstable; urgency=medium
+janus (0.2.0) unstable; urgency=medium
 
   * 设置窗口支持主题自动探测、自绘一体化标题栏与品牌视觉重构。
   * 托盘菜单精简启动项显示，支持按需刷新与 O(N) 构建优化。
@@ -14,7 +19,7 @@ janus-boot (0.2.0) unstable; urgency=medium
 
  -- wangle <wangle@agree.com.cn>  Wed, 25 Nov 2026 20:55:00 +0800
 
-janus-boot (0.1.0) unstable; urgency=medium
+janus (0.1.0) unstable; urgency=medium
 
   * Initial release: BootNext 切换（list/next/clear/reboot）、托盘常驻
     （ksni/tao）、shipup 签名自更新、--dry-run 模拟模式。
